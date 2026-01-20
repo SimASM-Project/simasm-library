@@ -1,0 +1,374 @@
+// =============================================================================
+// Activity Cycle Diagram (Fine-Grained) Model: mm5_acd - SimASM
+// =============================================================================
+// M/M/5 Queue using Activity Cycle Diagram formalism
+// Based on Tocher (1960) and Carrie (1988)
+// Fine-grained step semantics for trace equivalence
+
+// Fine-grained step semantics for trace equivalence with Event Graph
+// One ASM step = start ONE activity OR execute ONE BTO event
+
+// =============================================================================
+// IMPORT LIBRARIES
+// =============================================================================
+
+import Random as rnd
+import Stdlib as lib
+
+// =============================================================================
+// DOMAIN DECLARATIONS
+// =============================================================================
+
+domain Object
+
+// Passive states (Queues)
+domain Queue <: Object
+
+// Active states (Activities)
+domain Activity <: Object
+
+// Tokens (entities)
+domain Token <: Object
+domain Job <: Token
+domain Resource <: Token
+
+// Bound-to-occur events
+domain BTOEvent <: Object
+
+// =============================================================================
+// QUEUE DECLARATIONS (Passive States)
+// =============================================================================
+
+const C: Queue  // Creator resource queue (bound activity driver)
+const Q: Queue  // Job waiting queue
+const S: Queue  // Server resource queue
+const Jobs: Queue  // Completed jobs (sink)
+
+// =============================================================================
+// ACTIVITY DECLARATIONS (Active States)
+// =============================================================================
+
+const Create: Activity  // Job creation activity (bound activity)
+const Serve: Activity  // Service activity (conditional activity)
+
+// =============================================================================
+// CONSTANT DECLARATIONS
+// =============================================================================
+
+const num_servers: Nat  // Number of servers (N in M/M/N)
+const iat_mean: Real  // Inter-arrival time mean (1/lambda)
+const ist_mean: Real  // Service time mean (1/mu)
+const sim_end_time: Real  // Simulation end time
+
+// =============================================================================
+// DYNAMIC VARIABLE DECLARATIONS
+// =============================================================================
+
+var future_event_list: List<BTOEvent>
+var sim_clocktime: Real
+var current_bto_event: BTOEvent
+
+// Phase control (fine-grained step semantics)
+var current_phase: String
+var activity_started: Bool
+
+// Additional state variables
+var job_id_counter: Nat
+var departure_count: Nat
+var total_sojourn_time: Real
+var total_time_in_queue: Real
+
+
+// =============================================================================
+// RANDOM STREAM VARIABLES
+// =============================================================================
+
+var interarrival_time: rnd.exponential(iat_mean) as "arrivals"
+var service_time: rnd.exponential(ist_mean) as "service"
+
+// =============================================================================
+// STATIC FUNCTION DECLARATIONS
+// =============================================================================
+
+static function id(t: Token): Nat
+
+// =============================================================================
+// DYNAMIC FUNCTION DECLARATIONS
+// =============================================================================
+
+// Marking (token counts in queues)
+dynamic function marking(q: Queue): Nat
+dynamic function tokens(q: Queue): List<Token>
+
+// BTO-Event properties
+dynamic function bto_activity(e: BTOEvent): Activity
+dynamic function bto_scheduled_time(e: BTOEvent): Real
+dynamic function bto_tokens(e: BTOEvent): List<Token>
+
+// Job attributes
+dynamic function arrival_time(t: Job): Real
+dynamic function service_start_time(t: Job): Real
+
+
+// =============================================================================
+// OBSERVABLE STATE (Derived Functions)
+// =============================================================================
+
+derived function queue_count(): Nat =
+    marking(Q)
+
+derived function servers_busy(): Nat =
+    num_servers - marking(S)
+
+derived function in_system(): Nat =
+    marking(Q) + (num_servers - marking(S))
+
+// At-begin conditions (activity enabling)
+derived function at_begin_condition_create(): Bool =
+    marking(C) >= 1
+derived function at_begin_condition_serve(): Bool =
+    marking(S) >= 1 and marking(Q) >= 1
+
+// =============================================================================
+// RULES (ACD Phases)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Phase 0: Initialization
+// -----------------------------------------------------------------------------
+
+rule initialisation_routine() =
+    // Initialize C with 1 tokens
+    tokens(C) := []
+    let token_0 = new Resource
+    id(token_0) := 1
+    lib.add(tokens(C), token_0)
+
+    // Initialize S with 5 tokens
+    tokens(S) := []
+    let token_0 = new Resource
+    id(token_0) := 1
+    lib.add(tokens(S), token_0)
+    let token_1 = new Resource
+    id(token_1) := 2
+    lib.add(tokens(S), token_1)
+    let token_2 = new Resource
+    id(token_2) := 3
+    lib.add(tokens(S), token_2)
+    let token_3 = new Resource
+    id(token_3) := 4
+    lib.add(tokens(S), token_3)
+    let token_4 = new Resource
+    id(token_4) := 5
+    lib.add(tokens(S), token_4)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// At-begin: Create
+// -----------------------------------------------------------------------------
+
+rule at_begin_action_create() =
+    // Consume from C
+    marking(C) := marking(C) - 1
+    let creator_token = lib.pop(tokens(C))
+
+    // Schedule BTO-event
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := Create
+    bto_scheduled_time(bto_event) := sim_clocktime + interarrival_time
+    bto_tokens(bto_event) := [creator_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+// -----------------------------------------------------------------------------
+// At-begin: Serve
+// -----------------------------------------------------------------------------
+
+rule at_begin_action_serve() =
+    // Consume from S
+    marking(S) := marking(S) - 1
+    let server_token = lib.pop(tokens(S))
+    // Consume from Q
+    marking(Q) := marking(Q) - 1
+    let job_token = lib.pop(tokens(Q))
+
+    service_start_time(job_token) := sim_clocktime
+    // Schedule BTO-event
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := Serve
+    bto_scheduled_time(bto_event) := sim_clocktime + service_time
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+// -----------------------------------------------------------------------------
+// At-end: Create
+// -----------------------------------------------------------------------------
+
+rule at_end_action_create(bound_tokens: List<Token>) =
+    // Produce to C
+    let creator_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(C), creator_token)
+    marking(C) := marking(C) + 1
+    // Produce to Q
+    let new_token_0 = new Job
+    lib.add(tokens(Q), new_token_0)
+    marking(Q) := marking(Q) + 1
+    job_id_counter := job_id_counter + 1
+    id(new_token_0) := job_id_counter
+    arrival_time(new_token_0) := sim_clocktime
+endrule
+
+// -----------------------------------------------------------------------------
+// At-end: Serve
+// -----------------------------------------------------------------------------
+
+rule at_end_action_serve(bound_tokens: List<Token>) =
+    // Produce to S
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S), server_token)
+    marking(S) := marking(S) + 1
+    // Produce to Jobs
+    let job_token = lib.get(bound_tokens, 1)
+    lib.add(tokens(Jobs), job_token)
+    marking(Jobs) := marking(Jobs) + 1
+    departure_count := departure_count + 1
+    let time_in_system = sim_clocktime - arrival_time(job_token)
+    let time_in_queue = service_start_time(job_token) - arrival_time(job_token)
+    total_sojourn_time := total_sojourn_time + time_in_system
+    total_time_in_queue := total_time_in_queue + time_in_queue
+endrule
+
+// -----------------------------------------------------------------------------
+// Phase 1: Scanning Phase (Fine-Grained - ONE activity)
+// -----------------------------------------------------------------------------
+
+rule scanning_phase_single() =
+    activity_started := false
+
+    // Try Create (priority 1)
+    if not activity_started and at_begin_condition_create() then
+        at_begin_action_create()
+        activity_started := true
+    endif
+
+    // Try Serve (priority 2)
+    if not activity_started and at_begin_condition_serve() then
+        at_begin_action_serve()
+        activity_started := true
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// Phase 2: Timing Phase
+// -----------------------------------------------------------------------------
+
+rule timing_phase() =
+    // Sort FEL by scheduled time
+    lib.sort(future_event_list, "bto_scheduled_time")
+
+    let next_event = lib.pop(future_event_list)
+
+    // Advance clock
+    sim_clocktime := bto_scheduled_time(next_event)
+
+    // Execute at-end actions
+    executing_phase(next_event)
+endrule
+
+// -----------------------------------------------------------------------------
+// Phase 3: Executing Phase
+// -----------------------------------------------------------------------------
+
+rule executing_phase(bto_event: BTOEvent) =
+    let activity = bto_activity(bto_event)
+    let bound_tokens = bto_tokens(bto_event)
+
+    if activity == Create then
+        at_end_action_create(bound_tokens)
+    endif
+
+    if activity == Serve then
+        at_end_action_serve(bound_tokens)
+    endif
+endrule
+
+// =============================================================================
+// INITIAL STATE
+// =============================================================================
+
+init:
+    // Create queue objects
+    C := new Queue
+    Q := new Queue
+    S := new Queue
+    Jobs := new Queue
+
+    // Create activity objects
+    Create := new Activity
+    Serve := new Activity
+
+    // Parameters
+    num_servers := 5
+    iat_mean := 1.25
+    ist_mean := 1.0
+    sim_end_time := 1000.0
+
+    // Initial markings
+    marking(C) := 1
+    marking(Q) := 0
+    marking(S) := 5
+    marking(Jobs) := 0
+
+    // Initialize token lists
+    tokens(C) := []
+    tokens(Q) := []
+    tokens(S) := []
+    tokens(Jobs) := []
+
+    // Simulation state
+    sim_clocktime := 0.0
+    future_event_list := []
+
+    // Phase control (fine-grained)
+    current_phase := "init"
+    activity_started := false
+
+    // Additional state variables
+    job_id_counter := 0
+    departure_count := 0
+    total_sojourn_time := 0.0
+    total_time_in_queue := 0.0
+
+endinit
+
+// =============================================================================
+// MAIN RULE (Fine-Grained Activity Scanning)
+// =============================================================================
+
+main rule main =
+    // Phase: init - Initialize and switch to scan
+    if current_phase == "init" then
+        initialisation_routine()
+        current_phase := "scan"
+    endif
+
+    // Run while not stopped
+    if sim_clocktime < sim_end_time then
+        if current_phase == "scan" then
+            scanning_phase_single()
+            // If no activity started, switch to timing
+            if not activity_started then
+                current_phase := "time"
+            endif
+            // If activity started, stay in scan to try more
+        else
+            // current_phase == "time"
+            if lib.length(future_event_list) > 0 then
+                timing_phase()
+            endif
+            current_phase := "scan"
+        endif
+    endif
+endrule

@@ -1,0 +1,219 @@
+// =============================================================================
+// Verification: M/M/5 Event Graph vs Activity Cycle Diagram
+// =============================================================================
+// Verifies stutter equivalence between the Event Graph and ACD models
+// of an M/M/5 queueing system.
+//
+// Observable State:
+//   - queue_count: Number of entities waiting in queue
+//   - servers_busy: Number of servers currently processing
+//   - in_system: Total entities in system (queue + service)
+//
+// Verification uses k-induction to check that both models produce
+// equivalent observable state traces under the same random seed.
+// =============================================================================
+
+verification MM5_EG_vs_ACD_StutterEquivalence:
+
+    models:
+        import EG from "mm5_eg.simasm"
+        import ACD from "mm5_acd.simasm"
+    endmodels
+
+    seed: 42
+
+    labels:
+        // =====================================================================
+        // QUEUE COUNT PREDICATES
+        // =====================================================================
+        
+        label queue_eq_0 for EG: "queue_eq_0()"
+        label queue_eq_0 for ACD: "queue_eq_0()"
+        
+        label queue_eq_1 for EG: "queue_eq_1()"
+        label queue_eq_1 for ACD: "queue_eq_1()"
+        
+        label queue_eq_2 for EG: "queue_eq_2()"
+        label queue_eq_2 for ACD: "queue_eq_2()"
+        
+        label queue_eq_3 for EG: "queue_eq_3()"
+        label queue_eq_3 for ACD: "queue_eq_3()"
+        
+        label queue_eq_4 for EG: "queue_eq_4()"
+        label queue_eq_4 for ACD: "queue_eq_4()"
+        
+        label queue_eq_5 for EG: "queue_eq_5()"
+        label queue_eq_5 for ACD: "queue_eq_5()"
+        
+        label queue_ge_6 for EG: "queue_ge_6()"
+        label queue_ge_6 for ACD: "queue_ge_6()"
+
+        // =====================================================================
+        // SERVERS BUSY PREDICATES
+        // =====================================================================
+        
+        label busy_eq_0 for EG: "busy_eq_0()"
+        label busy_eq_0 for ACD: "busy_eq_0()"
+        
+        label busy_eq_1 for EG: "busy_eq_1()"
+        label busy_eq_1 for ACD: "busy_eq_1()"
+        
+        label busy_eq_2 for EG: "busy_eq_2()"
+        label busy_eq_2 for ACD: "busy_eq_2()"
+        
+        label busy_eq_3 for EG: "busy_eq_3()"
+        label busy_eq_3 for ACD: "busy_eq_3()"
+        
+        label busy_eq_4 for EG: "busy_eq_4()"
+        label busy_eq_4 for ACD: "busy_eq_4()"
+        
+        label busy_eq_5 for EG: "busy_eq_5()"
+        label busy_eq_5 for ACD: "busy_eq_5()"
+
+        // =====================================================================
+        // IN-SYSTEM PREDICATES
+        // =====================================================================
+        
+        label insys_eq_0 for EG: "insys_eq_0()"
+        label insys_eq_0 for ACD: "insys_eq_0()"
+        
+        label insys_eq_1 for EG: "insys_eq_1()"
+        label insys_eq_1 for ACD: "insys_eq_1()"
+        
+        label insys_eq_2 for EG: "insys_eq_2()"
+        label insys_eq_2 for ACD: "insys_eq_2()"
+        
+        label insys_eq_3 for EG: "insys_eq_3()"
+        label insys_eq_3 for ACD: "insys_eq_3()"
+        
+        label insys_eq_4 for EG: "insys_eq_4()"
+        label insys_eq_4 for ACD: "insys_eq_4()"
+        
+        label insys_eq_5 for EG: "insys_eq_5()"
+        label insys_eq_5 for ACD: "insys_eq_5()"
+        
+        label insys_ge_6 for EG: "insys_ge_6()"
+        label insys_ge_6 for ACD: "insys_ge_6()"
+
+    endlabels
+
+    observables:
+        // Queue count observables
+        observable queue_eq_0:
+            EG -> queue_eq_0
+            ACD -> queue_eq_0
+        endobservable
+
+        observable queue_eq_1:
+            EG -> queue_eq_1
+            ACD -> queue_eq_1
+        endobservable
+
+        observable queue_eq_2:
+            EG -> queue_eq_2
+            ACD -> queue_eq_2
+        endobservable
+
+        observable queue_eq_3:
+            EG -> queue_eq_3
+            ACD -> queue_eq_3
+        endobservable
+
+        observable queue_eq_4:
+            EG -> queue_eq_4
+            ACD -> queue_eq_4
+        endobservable
+
+        observable queue_eq_5:
+            EG -> queue_eq_5
+            ACD -> queue_eq_5
+        endobservable
+
+        observable queue_ge_6:
+            EG -> queue_ge_6
+            ACD -> queue_ge_6
+        endobservable
+
+        // Servers busy observables
+        observable busy_eq_0:
+            EG -> busy_eq_0
+            ACD -> busy_eq_0
+        endobservable
+
+        observable busy_eq_1:
+            EG -> busy_eq_1
+            ACD -> busy_eq_1
+        endobservable
+
+        observable busy_eq_2:
+            EG -> busy_eq_2
+            ACD -> busy_eq_2
+        endobservable
+
+        observable busy_eq_3:
+            EG -> busy_eq_3
+            ACD -> busy_eq_3
+        endobservable
+
+        observable busy_eq_4:
+            EG -> busy_eq_4
+            ACD -> busy_eq_4
+        endobservable
+
+        observable busy_eq_5:
+            EG -> busy_eq_5
+            ACD -> busy_eq_5
+        endobservable
+
+        // In-system observables
+        observable insys_eq_0:
+            EG -> insys_eq_0
+            ACD -> insys_eq_0
+        endobservable
+
+        observable insys_eq_1:
+            EG -> insys_eq_1
+            ACD -> insys_eq_1
+        endobservable
+
+        observable insys_eq_2:
+            EG -> insys_eq_2
+            ACD -> insys_eq_2
+        endobservable
+
+        observable insys_eq_3:
+            EG -> insys_eq_3
+            ACD -> insys_eq_3
+        endobservable
+
+        observable insys_eq_4:
+            EG -> insys_eq_4
+            ACD -> insys_eq_4
+        endobservable
+
+        observable insys_eq_5:
+            EG -> insys_eq_5
+            ACD -> insys_eq_5
+        endobservable
+
+        observable insys_ge_6:
+            EG -> insys_ge_6
+            ACD -> insys_ge_6
+        endobservable
+
+    endobservables
+
+    check:
+        type: stutter_equivalence
+        k_max: 1000
+        timeout: 600
+        skip_init_steps: 2
+    endcheck
+
+    output:
+        format: "json"
+        file_path: "output/mm5_verification_results.json"
+        include_counterexample: true
+    endoutput
+
+endverification

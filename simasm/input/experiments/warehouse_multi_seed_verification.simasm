@@ -1,0 +1,272 @@
+// =============================================================================
+// Verification: Warehouse Multi-Seed Stutter Equivalence
+// =============================================================================
+// Verifies stutter equivalence between the Event Graph v2 and ACD v2 generated
+// models of a warehouse outbound process using multiple random seeds for
+// probabilistic confidence in behavioral equivalence.
+//
+// =============================================================================
+// BOUNDED MULTI-SEED VERIFICATION ALGORITHM (Section 7.3)
+// =============================================================================
+//
+// Algorithm 1: Bounded Stutter Equivalence Verification
+//
+// Input: Models M_A, M_B
+//        Seeds S = {s_1, s_2, ..., s_k}
+//        Simulation horizon T
+//        Labeling function L
+// Output: EQUIVALENT or NOT_EQUIVALENT with counterexample
+//
+// for each seed s in S:
+//     trace_A <- simulate(M_A, seed=s, until=T)
+//     trace_B <- simulate(M_B, seed=s, until=T)
+//     ns_A <- no_stutter(trace_A)
+//     ns_B <- no_stutter(trace_B)
+//     if ns_A != ns_B:
+//         return NOT_EQUIVALENT with (s, divergence_point)
+// return EQUIVALENT for k seeds
+//
+// =============================================================================
+// W-STUTTERING THEORY (Mokkedem and Mery, 1997)
+// =============================================================================
+//
+// Definition: Stutter Equivalence
+//   Two traces sigma_A and sigma_B are stutter equivalent, denoted
+//   sigma_A ~ sigma_B, if their no-stutter traces are equal.
+//
+// Definition: No-Stutter Trace
+//   For a trace sigma = Q_0 -> Q_1 -> ... -> Q_n, the no-stutter trace
+//   ns(sigma) removes consecutive duplicate labels.
+//
+// =============================================================================
+// OBSERVATION LEVEL W FOR THIS VERIFICATION
+// =============================================================================
+//
+// W = { s1_busy_eq_*, s2_busy_eq_*, s3_busy_eq_*,
+//       s4_busy_eq_*, s5_busy_eq_*, s6_busy_eq_* }
+//
+// This tracks the NUMBER OF ENTITIES IN SERVICE at each station.
+//
+// EG v2:  servers_busy = S*_capacity - S* (where S* = available servers)
+// ACD v2: servers_busy = S*_capacity - marking(S*) (where marking(S*) = idle)
+//
+// =============================================================================
+
+verification Warehouse_MultiSeed_Stutter_Equivalence:
+
+    models:
+        import EG from "../models/warehouse_eg.simasm"
+        import ACD from "../models/warehouse_acd.simasm"
+    endmodels
+
+    // Multi-seed verification: test with 50 different seeds
+    seed_range: 1 to 50
+
+    labels:
+        // =====================================================================
+        // OBSERVATION LEVEL W: SERVERS BUSY PREDICATES
+        // =====================================================================
+        // EG v2:  servers_busy = S*_capacity - S*
+        // ACD v2: servers_busy = S*_capacity - marking(S*)
+        // =====================================================================
+
+        // S1 (Pick Zone A) - capacity 4
+        // EG uses: servers_busy(server_pick_a) via s1_busy_eq_*() derived functions
+        // ACD uses: get_S1_busy() derived function
+        label s1_busy_eq_0 for EG: "s1_busy_eq_0()"
+        label s1_busy_eq_0 for ACD: "s1_busy_eq_0()"
+
+        label s1_busy_eq_1 for EG: "s1_busy_eq_1()"
+        label s1_busy_eq_1 for ACD: "s1_busy_eq_1()"
+
+        label s1_busy_eq_2 for EG: "s1_busy_eq_2()"
+        label s1_busy_eq_2 for ACD: "s1_busy_eq_2()"
+
+        label s1_busy_eq_3 for EG: "s1_busy_eq_3()"
+        label s1_busy_eq_3 for ACD: "s1_busy_eq_3()"
+
+        label s1_busy_eq_4 for EG: "s1_busy_eq_4()"
+        label s1_busy_eq_4 for ACD: "s1_busy_eq_4()"
+
+        // S2 (Pick Zone B) - capacity 2
+        label s2_busy_eq_0 for EG: "s2_busy_eq_0()"
+        label s2_busy_eq_0 for ACD: "s2_busy_eq_0()"
+
+        label s2_busy_eq_1 for EG: "s2_busy_eq_1()"
+        label s2_busy_eq_1 for ACD: "s2_busy_eq_1()"
+
+        label s2_busy_eq_2 for EG: "s2_busy_eq_2()"
+        label s2_busy_eq_2 for ACD: "s2_busy_eq_2()"
+
+        // S3 (Label) - capacity 3
+        label s3_busy_eq_0 for EG: "s3_busy_eq_0()"
+        label s3_busy_eq_0 for ACD: "s3_busy_eq_0()"
+
+        label s3_busy_eq_1 for EG: "s3_busy_eq_1()"
+        label s3_busy_eq_1 for ACD: "s3_busy_eq_1()"
+
+        label s3_busy_eq_2 for EG: "s3_busy_eq_2()"
+        label s3_busy_eq_2 for ACD: "s3_busy_eq_2()"
+
+        label s3_busy_eq_3 for EG: "s3_busy_eq_3()"
+        label s3_busy_eq_3 for ACD: "s3_busy_eq_3()"
+
+        // S4 (Scan) - capacity 1
+        label s4_busy_eq_0 for EG: "s4_busy_eq_0()"
+        label s4_busy_eq_0 for ACD: "s4_busy_eq_0()"
+
+        label s4_busy_eq_1 for EG: "s4_busy_eq_1()"
+        label s4_busy_eq_1 for ACD: "s4_busy_eq_1()"
+
+        // S5 (Pack) - capacity 3
+        label s5_busy_eq_0 for EG: "s5_busy_eq_0()"
+        label s5_busy_eq_0 for ACD: "s5_busy_eq_0()"
+
+        label s5_busy_eq_1 for EG: "s5_busy_eq_1()"
+        label s5_busy_eq_1 for ACD: "s5_busy_eq_1()"
+
+        label s5_busy_eq_2 for EG: "s5_busy_eq_2()"
+        label s5_busy_eq_2 for ACD: "s5_busy_eq_2()"
+
+        label s5_busy_eq_3 for EG: "s5_busy_eq_3()"
+        label s5_busy_eq_3 for ACD: "s5_busy_eq_3()"
+
+        // S6 (Release) - capacity 2
+        label s6_busy_eq_0 for EG: "s6_busy_eq_0()"
+        label s6_busy_eq_0 for ACD: "s6_busy_eq_0()"
+
+        label s6_busy_eq_1 for EG: "s6_busy_eq_1()"
+        label s6_busy_eq_1 for ACD: "s6_busy_eq_1()"
+
+        label s6_busy_eq_2 for EG: "s6_busy_eq_2()"
+        label s6_busy_eq_2 for ACD: "s6_busy_eq_2()"
+
+    endlabels
+
+    observables:
+        // S1 (Pick Zone A) observables
+        observable s1_busy_eq_0:
+            EG -> s1_busy_eq_0
+            ACD -> s1_busy_eq_0
+        endobservable
+
+        observable s1_busy_eq_1:
+            EG -> s1_busy_eq_1
+            ACD -> s1_busy_eq_1
+        endobservable
+
+        observable s1_busy_eq_2:
+            EG -> s1_busy_eq_2
+            ACD -> s1_busy_eq_2
+        endobservable
+
+        observable s1_busy_eq_3:
+            EG -> s1_busy_eq_3
+            ACD -> s1_busy_eq_3
+        endobservable
+
+        observable s1_busy_eq_4:
+            EG -> s1_busy_eq_4
+            ACD -> s1_busy_eq_4
+        endobservable
+
+        // S2 (Pick Zone B) observables
+        observable s2_busy_eq_0:
+            EG -> s2_busy_eq_0
+            ACD -> s2_busy_eq_0
+        endobservable
+
+        observable s2_busy_eq_1:
+            EG -> s2_busy_eq_1
+            ACD -> s2_busy_eq_1
+        endobservable
+
+        observable s2_busy_eq_2:
+            EG -> s2_busy_eq_2
+            ACD -> s2_busy_eq_2
+        endobservable
+
+        // S3 (Label) observables
+        observable s3_busy_eq_0:
+            EG -> s3_busy_eq_0
+            ACD -> s3_busy_eq_0
+        endobservable
+
+        observable s3_busy_eq_1:
+            EG -> s3_busy_eq_1
+            ACD -> s3_busy_eq_1
+        endobservable
+
+        observable s3_busy_eq_2:
+            EG -> s3_busy_eq_2
+            ACD -> s3_busy_eq_2
+        endobservable
+
+        observable s3_busy_eq_3:
+            EG -> s3_busy_eq_3
+            ACD -> s3_busy_eq_3
+        endobservable
+
+        // S4 (Scan) observables
+        observable s4_busy_eq_0:
+            EG -> s4_busy_eq_0
+            ACD -> s4_busy_eq_0
+        endobservable
+
+        observable s4_busy_eq_1:
+            EG -> s4_busy_eq_1
+            ACD -> s4_busy_eq_1
+        endobservable
+
+        // S5 (Pack) observables
+        observable s5_busy_eq_0:
+            EG -> s5_busy_eq_0
+            ACD -> s5_busy_eq_0
+        endobservable
+
+        observable s5_busy_eq_1:
+            EG -> s5_busy_eq_1
+            ACD -> s5_busy_eq_1
+        endobservable
+
+        observable s5_busy_eq_2:
+            EG -> s5_busy_eq_2
+            ACD -> s5_busy_eq_2
+        endobservable
+
+        observable s5_busy_eq_3:
+            EG -> s5_busy_eq_3
+            ACD -> s5_busy_eq_3
+        endobservable
+
+        // S6 (Release) observables
+        observable s6_busy_eq_0:
+            EG -> s6_busy_eq_0
+            ACD -> s6_busy_eq_0
+        endobservable
+
+        observable s6_busy_eq_1:
+            EG -> s6_busy_eq_1
+            ACD -> s6_busy_eq_1
+        endobservable
+
+        observable s6_busy_eq_2:
+            EG -> s6_busy_eq_2
+            ACD -> s6_busy_eq_2
+        endobservable
+
+    endobservables
+
+    check:
+        type: stutter_equivalence
+        run_length: 5000.0
+        timeout: 100
+    endcheck
+
+    output:
+        format: "json"
+        file_path: "warehouse_multi_seed_results.json"
+        include_counterexample: true
+    endoutput
+
+endverification

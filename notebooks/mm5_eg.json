@@ -1,0 +1,135 @@
+{
+  "model_name": "mm5_eg",
+  "description": "M/M/5 Queue using Event Graph formalism (Schruben 1983)",
+  "state_variables": {
+    "q": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Queue length"
+    },
+    "p": {
+      "type": "Nat",
+      "initial": 5,
+      "description": "Available servers"
+    }
+  },
+  "parameters": {
+    "k": {
+      "type": "Nat",
+      "value": 5,
+      "description": "Number of servers"
+    },
+    "iat_mean": {
+      "type": "Real",
+      "value": 1.25,
+      "description": "Inter-arrival time mean"
+    },
+    "ist_mean": {
+      "type": "Real",
+      "value": 1.0,
+      "description": "Service time mean"
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 1000.0,
+      "description": "Simulation end time"
+    }
+  },
+  "random_streams": {
+    "T_a": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_mean"
+      },
+      "stream_name": "arrivals"
+    },
+    "T_s": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean"
+      },
+      "stream_name": "service"
+    }
+  },
+  "vertices": [
+    {
+      "name": "Arrive",
+      "state_change": "q := q + 1",
+      "description": "Customer arrival"
+    },
+    {
+      "name": "AttemptToStart",
+      "state_change": "",
+      "description": "Decision node"
+    },
+    {
+      "name": "Start",
+      "state_change": "q := q - 1; p := p - 1",
+      "description": "Service start"
+    },
+    {
+      "name": "Finish",
+      "state_change": "p := p + 1",
+      "description": "Service completion"
+    }
+  ],
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "T_a",
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Arrive",
+      "to": "AttemptToStart",
+      "delay": 0,
+      "condition": "true",
+      "priority": 1
+    },
+    {
+      "from": "AttemptToStart",
+      "to": "Start",
+      "delay": 0,
+      "condition": "p > 0 and q > 0",
+      "priority": 0
+    },
+    {
+      "from": "Start",
+      "to": "Finish",
+      "delay": "T_s",
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Finish",
+      "to": "AttemptToStart",
+      "delay": 0,
+      "condition": "q > 0",
+      "priority": 0
+    }
+  ],
+  "cancelling_edges": [],
+  "initial_events": [
+    {
+      "event": "Arrive",
+      "time": "T_a"
+    }
+  ],
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+  "observables": {
+    "queue_length": {
+      "expression": "q",
+      "return_type": "Nat"
+    },
+    "servers_busy": {
+      "expression": "k - p",
+      "return_type": "Nat"
+    },
+    "in_system": {
+      "expression": "q + (k - p)",
+      "return_type": "Nat"
+    }
+  }
+}

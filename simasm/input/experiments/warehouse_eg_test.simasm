@@ -1,0 +1,56 @@
+// =============================================================================
+// Test Experiment: Warehouse Event Graph v2 Generated Model
+// =============================================================================
+// Tests that the generated model runs correctly and produces reasonable results
+
+experiment WarehouseEGTest:
+    model := "warehouse_eg_generated.simasm"
+
+    replication:
+        count: 3
+        warm_up_time: 50.0
+        run_length: 500.0
+        seed_strategy: "incremental"
+        base_seed: 12345
+    endreplication
+
+    statistics:
+        // Queue lengths
+        stat L_Q1: time_average
+            expression: "Q1"
+        endstat
+
+        stat L_Q2: time_average
+            expression: "Q2"
+        endstat
+
+        stat L_Q3: time_average
+            expression: "Q3"
+        endstat
+
+        // Server utilizations
+        stat rho_S1: time_average
+            expression: "(S1_capacity - S1) / S1_capacity"
+        endstat
+
+        stat rho_S2: time_average
+            expression: "(S2_capacity - S2) / S2_capacity"
+        endstat
+
+        // Total in system
+        stat L_system: time_average
+            expression: "Q1 + Q2 + Q3 + Q4 + Q5 + Q6 + (S1_capacity - S1) + (S2_capacity - S2) + (S3_capacity - S3) + (S4_capacity - S4) + (S5_capacity - S5) + (S6_capacity - S6)"
+        endstat
+
+        // Departures
+        stat total_departures: observation
+            expression: "departures"
+        endstat
+
+    endstatistics
+
+    output:
+        format: "json"
+        file_path: "warehouse_eg_test_results.json"
+    endoutput
+endexperiment

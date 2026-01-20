@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0,<77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simasm"
+version = "0.4.4"
+description = "Abstract State Machine Framework for Discrete Event Simulation"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Steve Yeo"}
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Interpreters",
+]
+keywords = ["simulation", "discrete-event", "state-machine", "verification", "event-graph", "activity-cycle-diagram", "stutter-equivalence"]
+
+dependencies = [
+    "lark>=1.1.0",
+    "pydantic>=2.0",
+    "numpy>=1.20",
+    "matplotlib==3.9.2",
+    "scipy>=1.9",
+]
+
+[project.optional-dependencies]
+jupyter = [
+    "ipython>=7.0",
+    "matplotlib-inline>=0.1.6",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "build>=1.0",
+    "twine>=4.0",
+]
+all = [
+    "simasm[jupyter,dev]",
+]
+
+[project.urls]
+Homepage = "https://simasm-project.github.io/"
+Documentation = "https://simasm-project.github.io/reference/syntax.html/"
+Repository = "https://github.com/SimASM-Project"
+Issues = "https://github.com/SimASM-Project/simasm/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["simasm*"]
+
+[tool.setuptools.package-data]
+simasm = ["parser/*.lark", "experimenter/*.lark", "converter/*.lark"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+addopts = "-v"

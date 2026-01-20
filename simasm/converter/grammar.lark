@@ -1,0 +1,56 @@
+// =============================================================================
+// SimASM Converter Grammar
+// =============================================================================
+// Defines the DSL for converting JSON specifications to SimASM code.
+//
+// Example:
+//     convert mm5_eg:
+//         source: "mm5_eg.json"
+//         formalism: event_graph
+//         register: "mm5_eg"
+//         print: 50
+//     endconvert
+// =============================================================================
+
+start: convert_decl+
+
+convert_decl: "convert" IDENTIFIER ":" convert_body "endconvert"
+
+convert_body: convert_setting+
+
+convert_setting: source_setting
+              | formalism_setting
+              | register_setting
+              | print_setting
+              | output_setting
+
+source_setting: "source" ":" STRING
+
+formalism_setting: "formalism" ":" FORMALISM_TYPE
+
+register_setting: "register" ":" STRING
+
+print_setting: "print" ":" print_value
+
+output_setting: "output" ":" STRING
+
+print_value: INT -> print_lines
+           | "true" -> print_all
+           | "false" -> print_none
+
+// =============================================================================
+// Terminals
+// =============================================================================
+
+FORMALISM_TYPE: "event_graph" | "acd"
+
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+STRING: /"[^"]*"/
+
+INT: /[0-9]+/
+
+// Skip whitespace and comments
+COMMENT: /\/\/[^\n]*/
+%ignore COMMENT
+%ignore /[\s]+/

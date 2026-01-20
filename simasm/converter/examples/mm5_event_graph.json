@@ -1,0 +1,155 @@
+{
+  "model_name": "mm5_eg",
+  "description": "M/M/5 Queue using Event Graph formalism - generated from JSON",
+
+  "entities": {
+    "Load": {
+      "name": "Load",
+      "parent": "Object",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time": "Real",
+        "departure_time": "Real"
+      }
+    }
+  },
+
+  "parameters": {
+    "service_capacity": {"type": "Nat", "value": 5, "description": "Number of servers"},
+    "iat_mean": {"type": "Real", "value": 1.25, "description": "Inter-arrival time mean"},
+    "ist_mean": {"type": "Real", "value": 1.0, "description": "Service time mean"},
+    "sim_end_time": {"type": "Real", "value": 1000.0, "description": "Simulation end time"}
+  },
+
+  "state_variables": {
+    "queue_count": {"type": "Nat", "initial": 0, "description": "Number in queue"},
+    "server_count": {"type": "Nat", "initial": 0, "description": "Number being served"},
+    "load_id_counter": {"type": "Nat", "initial": 0},
+    "departure_count": {"type": "Nat", "initial": 0},
+    "total_time_in_system": {"type": "Real", "initial": 0.0},
+    "total_time_in_queue": {"type": "Real", "initial": 0.0}
+  },
+
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {"mean": "iat_mean"},
+      "stream_name": "arrivals"
+    },
+    "service_time": {
+      "distribution": "exponential",
+      "params": {"mean": "ist_mean"},
+      "stream_name": "service"
+    }
+  },
+
+  "vertices": [
+    {
+      "name": "Arrive",
+      "state_changes": [
+        "load_id_counter := load_id_counter + 1",
+        "queue_count := queue_count + 1"
+      ],
+      "description": "Customer arrival event"
+    },
+    {
+      "name": "Start",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        "queue_count := queue_count - 1",
+        "server_count := server_count + 1"
+      ],
+      "description": "Service start event"
+    },
+    {
+      "name": "Finish",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        "server_count := server_count - 1",
+        "departure_count := departure_count + 1"
+      ],
+      "description": "Service completion event"
+    }
+  ],
+
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "interarrival_time",
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Arrive",
+      "to": "Start",
+      "delay": 0,
+      "condition": "server_count < service_capacity",
+      "priority": 0,
+      "parameters": ["load"]
+    },
+    {
+      "from": "Start",
+      "to": "Finish",
+      "delay": "service_time",
+      "condition": "true",
+      "priority": 0,
+      "parameters": ["load"]
+    },
+    {
+      "from": "Finish",
+      "to": "Start",
+      "delay": 0,
+      "condition": "queue_count > 0 and server_count < service_capacity",
+      "priority": 0,
+      "parameters": ["next_load"]
+    }
+  ],
+
+  "cancelling_edges": [],
+
+  "initial_events": [
+    {"event": "Arrive", "time": 0}
+  ],
+
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+
+  "observables": {
+    "queue_count": {
+      "name": "queue_count",
+      "expression": "queue_count",
+      "description": "Number in queue"
+    },
+    "servers_busy": {
+      "name": "servers_busy",
+      "expression": "server_count",
+      "description": "Number of busy servers"
+    },
+    "in_system": {
+      "name": "in_system",
+      "expression": "queue_count + server_count",
+      "description": "Total in system"
+    }
+  },
+
+  "statistics": [
+    {
+      "name": "L_q",
+      "type": "time_average",
+      "expression": "queue_count",
+      "description": "Average queue length"
+    },
+    {
+      "name": "L",
+      "type": "time_average",
+      "expression": "queue_count + server_count",
+      "description": "Average number in system"
+    },
+    {
+      "name": "throughput",
+      "type": "count",
+      "expression": "departure_count",
+      "description": "Total departures"
+    }
+  ]
+}

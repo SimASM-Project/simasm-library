@@ -1,0 +1,650 @@
+{
+  "model_name": "warehouse_acd",
+  "description": "Warehouse Outbound Process using Activity Cycle Diagram formalism",
+  "parameters": {
+    "Q1_max": {
+      "type": "Nat",
+      "value": 30
+    },
+    "Q2_max": {
+      "type": "Nat",
+      "value": 20
+    },
+    "Q3_max": {
+      "type": "Nat",
+      "value": 50
+    },
+    "Q4_max": {
+      "type": "Nat",
+      "value": 20
+    },
+    "Q5_max": {
+      "type": "Nat",
+      "value": 30
+    },
+    "Q6_max": {
+      "type": "Nat",
+      "value": 20
+    },
+    "S1_capacity": {
+      "type": "Nat",
+      "value": 4
+    },
+    "S2_capacity": {
+      "type": "Nat",
+      "value": 2
+    },
+    "S3_capacity": {
+      "type": "Nat",
+      "value": 3
+    },
+    "S4_capacity": {
+      "type": "Nat",
+      "value": 1
+    },
+    "S5_capacity": {
+      "type": "Nat",
+      "value": 3
+    },
+    "S6_capacity": {
+      "type": "Nat",
+      "value": 2
+    },
+    "iat_c1_mean": {
+      "type": "Real",
+      "value": 325.5
+    },
+    "iat_c2_mean": {
+      "type": "Real",
+      "value": 527.6
+    },
+    "iat_c3_mean": {
+      "type": "Real",
+      "value": 226.1
+    },
+    "iat_c4_mean": {
+      "type": "Real",
+      "value": 985.6
+    },
+    "ist_s1_mean": {
+      "type": "Real",
+      "value": 78.4
+    },
+    "ist_s2_mean": {
+      "type": "Real",
+      "value": 76.2
+    },
+    "ist_s3_mean": {
+      "type": "Real",
+      "value": 288.8
+    },
+    "ist_s4_mean": {
+      "type": "Real",
+      "value": 31.2
+    },
+    "ist_s5_mean": {
+      "type": "Real",
+      "value": 66.8
+    },
+    "ist_s6_mean": {
+      "type": "Real",
+      "value": 1.0
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 10000.0
+    }
+  },
+  "token_types": {
+    "Job": {
+      "parent": "Token",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time": "Real",
+        "job_type": "Nat"
+      },
+      "description": "Customer job token"
+    },
+    "Resource": {
+      "parent": "Token",
+      "description": "Reusable resource token"
+    }
+  },
+  "queues": {
+    "C1": {
+      "initial_marking": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Zone A Type 1 creator"
+    },
+    "C2": {
+      "initial_marking": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Zone A Type 2 creator"
+    },
+    "C3": {
+      "initial_marking": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Zone B Type 1 creator"
+    },
+    "C4": {
+      "initial_marking": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Zone B Type 2 creator"
+    },
+    "Q1": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Pick Zone A queue"
+    },
+    "Q2": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Pick Zone B queue"
+    },
+    "Q3": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Labelling queue"
+    },
+    "Q4": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Scanning queue"
+    },
+    "Q5": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Packing queue"
+    },
+    "Q6": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Release queue"
+    },
+    "S1": {
+      "initial_marking": 4,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Pick Zone A servers"
+    },
+    "S2": {
+      "initial_marking": 2,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Pick Zone B servers"
+    },
+    "S3": {
+      "initial_marking": 3,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Labelling servers"
+    },
+    "S4": {
+      "initial_marking": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Scanning servers"
+    },
+    "S5": {
+      "initial_marking": 3,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Packing servers"
+    },
+    "S6": {
+      "initial_marking": 2,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Release servers"
+    },
+    "Jobs": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Completed jobs"
+    }
+  },
+  "activities": [
+    {
+      "name": "CreateZA1",
+      "priority": 1,
+      "description": "Create Zone A Type 1 job",
+      "at_begin": {
+        "condition": "marking(C1) >= 1",
+        "action": "C1--",
+        "bind": [
+          "creator_token:C1"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_create_za1",
+        "name": "CreatedZA1"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "C1++ <- creator_token",
+          "influences": [
+            "CreateZA1"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q1++ <- new Job",
+          "influences": [
+            "PickZoneA"
+          ],
+          "condition": "marking(Q1) < Q1_max"
+        }
+      ]
+    },
+    {
+      "name": "CreateZA2",
+      "priority": 2,
+      "description": "Create Zone A Type 2 job",
+      "at_begin": {
+        "condition": "marking(C2) >= 1",
+        "action": "C2--",
+        "bind": [
+          "creator_token:C2"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_create_za2",
+        "name": "CreatedZA2"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "C2++ <- creator_token",
+          "influences": [
+            "CreateZA2"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q1++ <- new Job",
+          "influences": [
+            "PickZoneA"
+          ],
+          "condition": "marking(Q1) < Q1_max"
+        }
+      ]
+    },
+    {
+      "name": "CreateZB1",
+      "priority": 3,
+      "description": "Create Zone B Type 1 job",
+      "at_begin": {
+        "condition": "marking(C3) >= 1",
+        "action": "C3--",
+        "bind": [
+          "creator_token:C3"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_create_zb1",
+        "name": "CreatedZB1"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "C3++ <- creator_token",
+          "influences": [
+            "CreateZB1"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q2++ <- new Job",
+          "influences": [
+            "PickZoneB"
+          ],
+          "condition": "marking(Q2) < Q2_max"
+        }
+      ]
+    },
+    {
+      "name": "CreateZB2",
+      "priority": 4,
+      "description": "Create Zone B Type 2 job",
+      "at_begin": {
+        "condition": "marking(C4) >= 1",
+        "action": "C4--",
+        "bind": [
+          "creator_token:C4"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_create_zb2",
+        "name": "CreatedZB2"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "C4++ <- creator_token",
+          "influences": [
+            "CreateZB2"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q2++ <- new Job",
+          "influences": [
+            "PickZoneB"
+          ],
+          "condition": "marking(Q2) < Q2_max"
+        }
+      ]
+    },
+    {
+      "name": "PickZoneA",
+      "priority": 5,
+      "description": "Picking Zone A service",
+      "at_begin": {
+        "condition": "marking(Q1) >= 1 and marking(S1) >= 1",
+        "action": "S1--; Q1--",
+        "bind": [
+          "server_token:S1",
+          "job_token:Q1"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_pick_a",
+        "name": "PickedZoneA"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S1++ <- server_token",
+          "influences": [
+            "PickZoneA"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q3++ <- job_token",
+          "influences": [
+            "Label"
+          ],
+          "condition": "marking(Q3) < Q3_max"
+        }
+      ]
+    },
+    {
+      "name": "PickZoneB",
+      "priority": 6,
+      "description": "Picking Zone B service",
+      "at_begin": {
+        "condition": "marking(Q2) >= 1 and marking(S2) >= 1",
+        "action": "S2--; Q2--",
+        "bind": [
+          "server_token:S2",
+          "job_token:Q2"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_pick_b",
+        "name": "PickedZoneB"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S2++ <- server_token",
+          "influences": [
+            "PickZoneB"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q3++ <- job_token",
+          "influences": [
+            "Label"
+          ],
+          "condition": "marking(Q3) < Q3_max"
+        }
+      ]
+    },
+    {
+      "name": "Label",
+      "priority": 7,
+      "description": "Labelling service",
+      "at_begin": {
+        "condition": "marking(Q3) >= 1 and marking(S3) >= 1",
+        "action": "S3--; Q3--",
+        "bind": [
+          "server_token:S3",
+          "job_token:Q3"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_label",
+        "name": "Labelled"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S3++ <- server_token",
+          "influences": [
+            "Label"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q4++ <- job_token",
+          "influences": [
+            "Scan"
+          ],
+          "condition": "marking(Q4) < Q4_max"
+        }
+      ]
+    },
+    {
+      "name": "Scan",
+      "priority": 8,
+      "description": "Scanning service",
+      "at_begin": {
+        "condition": "marking(Q4) >= 1 and marking(S4) >= 1",
+        "action": "S4--; Q4--",
+        "bind": [
+          "server_token:S4",
+          "job_token:Q4"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_scan",
+        "name": "Scanned"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S4++ <- server_token",
+          "influences": [
+            "Scan"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q5++ <- job_token",
+          "influences": [
+            "Pack"
+          ],
+          "condition": "marking(Q5) < Q5_max"
+        }
+      ]
+    },
+    {
+      "name": "Pack",
+      "priority": 9,
+      "description": "Packing service",
+      "at_begin": {
+        "condition": "marking(Q5) >= 1 and marking(S5) >= 1",
+        "action": "S5--; Q5--",
+        "bind": [
+          "server_token:S5",
+          "job_token:Q5"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_pack",
+        "name": "Packed"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S5++ <- server_token",
+          "influences": [
+            "Pack"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q6++ <- job_token",
+          "influences": [
+            "Release"
+          ],
+          "condition": "marking(Q6) < Q6_max"
+        }
+      ]
+    },
+    {
+      "name": "Release",
+      "priority": 10,
+      "description": "Release service",
+      "at_begin": {
+        "condition": "marking(Q6) >= 1 and marking(S6) >= 1",
+        "action": "S6--; Q6--",
+        "bind": [
+          "server_token:S6",
+          "job_token:Q6"
+        ]
+      },
+      "bto_event": {
+        "time": "duration_release",
+        "name": "Released"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S6++ <- server_token",
+          "influences": [
+            "Release"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Jobs++ <- job_token",
+          "influences": []
+        }
+      ]
+    }
+  ],
+  "random_streams": {
+    "duration_create_za1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c1_mean"
+      },
+      "stream_name": "creation_za1"
+    },
+    "duration_create_za2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c2_mean"
+      },
+      "stream_name": "creation_za2"
+    },
+    "duration_create_zb1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c3_mean"
+      },
+      "stream_name": "creation_zb1"
+    },
+    "duration_create_zb2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c4_mean"
+      },
+      "stream_name": "creation_zb2"
+    },
+    "duration_pick_a": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s1_mean"
+      },
+      "stream_name": "service_pick_a"
+    },
+    "duration_pick_b": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s2_mean"
+      },
+      "stream_name": "service_pick_b"
+    },
+    "duration_label": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s3_mean"
+      },
+      "stream_name": "service_label"
+    },
+    "duration_scan": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s4_mean"
+      },
+      "stream_name": "service_scan"
+    },
+    "duration_pack": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s5_mean"
+      },
+      "stream_name": "service_pack"
+    },
+    "duration_release": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s6_mean"
+      },
+      "stream_name": "service_release"
+    }
+  },
+  "observables": {
+    "get_S1_busy": {
+      "expression": "S1_capacity - marking(S1)",
+      "description": "Pick Zone A busy servers"
+    },
+    "get_S2_busy": {
+      "expression": "S2_capacity - marking(S2)",
+      "description": "Pick Zone B busy servers"
+    },
+    "get_S3_busy": {
+      "expression": "S3_capacity - marking(S3)",
+      "description": "Labelling busy servers"
+    },
+    "get_S4_busy": {
+      "expression": "S4_capacity - marking(S4)",
+      "description": "Scanning busy servers"
+    },
+    "get_S5_busy": {
+      "expression": "S5_capacity - marking(S5)",
+      "description": "Packing busy servers"
+    },
+    "get_S6_busy": {
+      "expression": "S6_capacity - marking(S6)",
+      "description": "Release busy servers"
+    }
+  }
+}

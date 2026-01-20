@@ -1,0 +1,58 @@
+// =============================================================================
+// Verification: Event Graph vs Activity Cycle Diagram
+// =============================================================================
+// Verifies stutter equivalence between M/M/1 queue implementations
+// Both should produce equivalent observable behavior
+// =============================================================================
+
+verification EG_vs_ACD_MMn:
+    models:
+        import EG from "mmn_eg.simasm"
+        import ACD from "mmn_acd.simasm"
+    endmodels
+    
+    seed: 42
+    
+    labels:
+        // Queue empty labels
+        label eg_queue_empty for EG: "queue_count(queue) == 0"
+        label acd_queue_empty for ACD: "marking(Q) == 0"
+        
+        // Server idle labels  
+        label eg_server_idle for EG: "service_count(server) == 0"
+        label acd_server_idle for ACD: "marking(S) == num_servers"
+        
+        // System empty labels (no jobs in system)
+        label eg_system_empty for EG: "queue_count(queue) == 0 and service_count(server) == 0"
+        label acd_system_empty for ACD: "marking(Q) == 0 and marking(S) == num_servers"
+    endlabels
+    
+    observables:
+        observable queue_empty:
+            EG -> eg_queue_empty
+            ACD -> acd_queue_empty
+        endobservable
+        
+        observable server_idle:
+            EG -> eg_server_idle
+            ACD -> acd_server_idle
+        endobservable
+        
+        observable system_empty:
+            EG -> eg_system_empty
+            ACD -> acd_system_empty
+        endobservable
+    endobservables
+    
+    check:
+        type: stutter_equivalence
+        k_max: 10000
+        timeout: 300
+    endcheck
+    
+    output:
+        format: "json"
+        file_path: "output/eg_vs_acd_verification.json"
+        include_counterexample: true
+    endoutput
+endverification

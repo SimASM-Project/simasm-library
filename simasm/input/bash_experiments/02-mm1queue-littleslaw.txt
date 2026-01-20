@@ -1,0 +1,17 @@
+# Run individual experiments
+python -m simasm.experimenter.cli simasm/input/littles_law_eg.simasm
+python -m simasm.experimenter.cli simasm/input/littles_law_acd.simasm
+
+# Run full verification script
+python -m simasm.input.verify_littles_law
+```
+
+## Sample Output
+```
+Little's Law Verification: Event Graph (EG)
+  L (avg in system)      4.2048     4.0000      5.12%
+  L_q (avg in queue)     3.4102     3.2000      6.57%
+  ρ (utilization)        0.7946     0.8000      0.68%
+  
+  L = λW
+    4.2048 = 0.8753 × 4.8036  ✓
