@@ -1,0 +1,83 @@
+// =============================================================================
+// Verification: Event Graph vs Activity Cycle Diagram
+// =============================================================================
+// Verifies stutter equivalence between M/M/1 (EG) and M/M/5 (ACD)
+// 
+// IMPORTANT: Use COARSE observables that abstract away internal timing
+// differences between formalisms. Fine-grained observables like 
+// "queue_waiting" capture implementation details, not observable behavior.
+//
+// Theory: L: S -> 2^AP where AP is a set of boolean predicates
+// =============================================================================
+
+verification EG_vs_ACD_MMn_StutterEquivalence:
+
+    models:
+        import EG from "mm1_eg.simasm"
+        import ACD from "mm5_acd.simasm"
+    endmodels
+
+    seed: 42
+
+    labels:
+        // =====================================================================
+        // ATOMIC PROPOSITIONS (Boolean Predicates)
+        // =====================================================================
+        // Use COARSE observables that both formalisms agree on.
+        // Avoid fine-grained internal state like "queue_waiting" which
+        // captures implementation timing differences.
+        
+        // ---------------------------------------------------------------------
+        // System State (Observable Behavior)
+        // ---------------------------------------------------------------------
+        
+        // AP: System is busy (at least one job somewhere in system)
+        // This is the OBSERVABLE behavior - external observer sees system working
+        label eg_system_busy for EG: "queue_count(queue) > 0 or service_count(server) > 0"
+        label acd_system_busy for ACD: "marking(Q) > 0 or marking(S) < num_servers"
+        
+        // ---------------------------------------------------------------------
+        // Server Capacity (Structural Discriminator)
+        // ---------------------------------------------------------------------
+        
+        // AP: Multiple jobs in service simultaneously
+        // CRITICAL: This discriminates M/M/1 from M/M/n (n > 1)
+        // - M/M/1: ALWAYS False (can only serve 1 job at a time)
+        // - M/M/5: CAN be True (can serve 2, 3, 4, or 5 jobs simultaneously)
+        label eg_multiple_in_service for EG: "service_count(server) > 1"
+        label acd_multiple_in_service for ACD: "num_servers - marking(S) > 1"
+        
+    endlabels
+
+    observables:
+        // =================================================================
+        // OBSERVABLE MAPPINGS
+        // =================================================================
+        // Map corresponding atomic propositions between models.
+        // At sync points: L_EG(s_EG) must equal L_ACD(s_ACD)
+        
+        observable system_busy:
+            EG -> eg_system_busy
+            ACD -> acd_system_busy
+        endobservable
+
+        observable multiple_in_service:
+            EG -> eg_multiple_in_service
+            ACD -> acd_multiple_in_service
+        endobservable
+
+    endobservables
+
+    check:
+        type: stutter_equivalence
+        k_max: 500
+        timeout: 500
+    endcheck
+
+    output:
+        format: "json"
+        file_path: "output/eg_vs_acd_stutter_equiv.json"
+        include_counterexample: true
+    endoutput
+
+endverification

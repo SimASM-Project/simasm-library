@@ -1,0 +1,156 @@
+{
+  "model_name": "mm5_acd",
+  "description": "M/M/5 Queue using Activity Cycle Diagram formalism",
+  "parameters": {
+    "num_servers": {
+      "type": "Nat",
+      "value": 5,
+      "description": "Number of servers"
+    },
+    "iat_mean": {
+      "type": "Real",
+      "value": 1.25,
+      "description": "Inter-arrival time mean"
+    },
+    "ist_mean": {
+      "type": "Real",
+      "value": 1.0,
+      "description": "Service time mean"
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 1000.0,
+      "description": "Simulation end time"
+    }
+  },
+  "token_types": {
+    "Job": {
+      "parent": "Token",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time": "Real"
+      },
+      "description": "Customer job token"
+    },
+    "Resource": {
+      "parent": "Token",
+      "description": "Reusable resource token"
+    }
+  },
+  "queues": {
+    "C": {
+      "initial_marking": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Creator"
+    },
+    "Q": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Job queue"
+    },
+    "S": {
+      "initial_marking": 5,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Servers"
+    },
+    "Jobs": {
+      "initial_marking": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Completed"
+    }
+  },
+  "activities": [
+    {
+      "name": "Create",
+      "priority": 1,
+      "description": "Job creation",
+      "at_begin": {
+        "condition": "marking(C) >= 1",
+        "action": "C--",
+        "bind": [
+          "creator_token:C"
+        ]
+      },
+      "bto_event": {
+        "time": "interarrival_time",
+        "name": "Created"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "C++ <- creator_token",
+          "influences": [
+            "Create"
+          ]
+        },
+        {
+          "arc": 2,
+          "action": "Q++ <- new Job",
+          "influences": [
+            "Serve"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Serve",
+      "priority": 2,
+      "description": "Service activity",
+      "at_begin": {
+        "condition": "marking(S) >= 1 and marking(Q) >= 1",
+        "action": "S--; Q--",
+        "bind": [
+          "server_token:S",
+          "job_token:Q"
+        ]
+      },
+      "bto_event": {
+        "time": "service_time",
+        "name": "Served"
+      },
+      "at_end": [
+        {
+          "arc": 1,
+          "action": "S++ <- server_token; Jobs++ <- job_token",
+          "influences": [
+            "Serve"
+          ]
+        }
+      ]
+    }
+  ],
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_mean"
+      },
+      "stream_name": "arrivals"
+    },
+    "service_time": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean"
+      },
+      "stream_name": "service"
+    }
+  },
+  "observables": {
+    "queue_count": {
+      "expression": "marking(Q)",
+      "description": "Number in queue"
+    },
+    "servers_busy": {
+      "expression": "num_servers - marking(S)",
+      "description": "Busy servers"
+    },
+    "in_system": {
+      "expression": "marking(Q) + (num_servers - marking(S))",
+      "description": "Total in system"
+    }
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "model_name": "mm5_eg",
+  "description": "M/M/5 Queue using Event Graph formalism\nBased on Schruben (1983) Event Graph methodology",
+
+  "resources": {
+    "generator": {
+      "type": "Generator",
+      "lists": ["arrivals"],
+      "counters": ["arrival_count"]
+    },
+    "queue": {
+      "type": "Queue",
+      "lists": ["queues"],
+      "counters": ["queue_count"]
+    },
+    "server": {
+      "type": "Server",
+      "lists": ["serves", "departures"],
+      "counters": ["service_count", "departure_count"],
+      "accumulators": ["total_time_in_system", "total_time_in_queue"]
+    }
+  },
+
+  "entities": {
+    "Load": {
+      "name": "Load",
+      "parent": "Object",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time": "Real",
+        "departure_time": "Real"
+      }
+    }
+  },
+
+  "parameters": {
+    "service_capacity": {"type": "Nat", "value": 5, "description": "Number of servers"},
+    "iat_mean": {"type": "Real", "value": 1.25, "description": "Inter-arrival time mean"},
+    "ist_mean": {"type": "Real", "value": 1.0, "description": "Service time mean"},
+    "sim_end_time": {"type": "Real", "value": 1000.0, "description": "Simulation end time"}
+  },
+
+  "state_variables": {
+    "load_id_counter": {"type": "Nat", "initial": 0}
+  },
+
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {"mean": "iat_mean"},
+      "stream_name": "arrivals"
+    },
+    "service_time": {
+      "distribution": "exponential",
+      "params": {"mean": "ist_mean"},
+      "stream_name": "service"
+    }
+  },
+
+  "vertices": [
+    {
+      "name": "Arrive",
+      "parameters": [],
+      "state_changes": [
+        {"op": "increment", "var": "load_id_counter"},
+        {"op": "create_entity", "entity_type": "Load", "as_var": "load"},
+        {"op": "set_attribute", "entity": "load", "attribute": "id", "value": "load_id_counter"},
+        {"op": "set_attribute", "entity": "load", "attribute": "arrival_time", "value": "sim_clocktime"},
+        {"op": "add_to_list", "list_name": "arrivals", "resource": "generator", "entity": "load"},
+        {"op": "increment_counter", "counter": "arrival_count", "resource": "generator"}
+      ],
+      "description": "Customer arrival event"
+    },
+    {
+      "name": "AttemptToStart",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        {"op": "add_to_list", "list_name": "queues", "resource": "queue", "entity": "load"},
+        {"op": "increment_counter", "counter": "queue_count", "resource": "queue"}
+      ],
+      "description": "Attempt to start service event"
+    },
+    {
+      "name": "Start",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        {"op": "remove_from_list", "list_name": "queues", "resource": "queue", "entity": "load"},
+        {"op": "decrement_counter", "counter": "queue_count", "resource": "queue"},
+        {"op": "set_attribute", "entity": "load", "attribute": "service_start_time", "value": "sim_clocktime"},
+        {"op": "add_to_list", "list_name": "serves", "resource": "server", "entity": "load"},
+        {"op": "increment_counter", "counter": "service_count", "resource": "server"}
+      ],
+      "description": "Service start event"
+    },
+    {
+      "name": "Finish",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        {"op": "remove_from_list", "list_name": "serves", "resource": "server", "entity": "load"},
+        {"op": "decrement_counter", "counter": "service_count", "resource": "server"},
+        {"op": "set_attribute", "entity": "load", "attribute": "departure_time", "value": "sim_clocktime"},
+        {"op": "compute", "var": "time_in_system", "expression": "sim_clocktime - arrival_time(load)"},
+        {"op": "compute", "var": "time_in_queue", "expression": "service_start_time(load) - arrival_time(load)"},
+        {"op": "accumulate", "accumulator": "total_time_in_system", "resource": "server", "value": "time_in_system"},
+        {"op": "accumulate", "accumulator": "total_time_in_queue", "resource": "server", "value": "time_in_queue"},
+        {"op": "add_to_list", "list_name": "departures", "resource": "server", "entity": "load"},
+        {"op": "increment_counter", "counter": "departure_count", "resource": "server"}
+      ],
+      "description": "Service completion event"
+    }
+  ],
+
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "AttemptToStart",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0,
+      "parameters": [{"type": "entity", "var": "load"}],
+      "comment": "Schedule AttemptToStart for this load (immediate)"
+    },
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "interarrival_time",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [],
+      "comment": "Schedule next arrival"
+    },
+    {
+      "from": "AttemptToStart",
+      "to": "Start",
+      "delay": 0,
+      "condition": {
+        "type": "and",
+        "conditions": [
+          {"type": "list_length", "list_name": "serves", "resource": "server", "operator": "<", "value": "service_capacity"},
+          {"type": "list_length", "list_name": "queues", "resource": "queue", "operator": ">", "value": 0}
+        ]
+      },
+      "priority": 0,
+      "parameters": [{"type": "first_from_list", "list_name": "queues", "resource": "queue"}],
+      "comment": "Schedule Start if server available"
+    },
+    {
+      "from": "Start",
+      "to": "Finish",
+      "delay": "service_time",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [{"type": "entity", "var": "load"}],
+      "comment": "Schedule Finish after service time"
+    },
+    {
+      "from": "Finish",
+      "to": "Start",
+      "delay": 0,
+      "condition": {"type": "list_length", "list_name": "queues", "resource": "queue", "operator": ">", "value": 0},
+      "priority": 0,
+      "parameters": [{"type": "first_from_list", "list_name": "queues", "resource": "queue"}],
+      "comment": "Schedule Start for next load if queue not empty"
+    }
+  ],
+
+  "cancelling_edges": [],
+
+  "initial_events": [
+    {
+      "event": "Arrive",
+      "time": "interarrival_time",
+      "parameters": [],
+      "comment": "Schedule first arrival after first interarrival time"
+    }
+  ],
+
+  "stopping_condition": "time_limit",
+
+  "observables": {
+    "get_queue_count": {
+      "name": "get_queue_count",
+      "return_type": "Nat",
+      "expression": "queue_count(queue)",
+      "description": "Number in queue"
+    },
+    "get_servers_busy": {
+      "name": "get_servers_busy",
+      "return_type": "Nat",
+      "expression": "service_count(server)",
+      "description": "Number of busy servers"
+    },
+    "in_system": {
+      "name": "in_system",
+      "return_type": "Nat",
+      "expression": "get_queue_count() + get_servers_busy()",
+      "description": "Total in system"
+    }
+  },
+
+  "statistics": [
+    {
+      "name": "L_queue",
+      "type": "time_average",
+      "observable": "get_queue_count",
+      "description": "Average queue length"
+    },
+    {
+      "name": "L_service",
+      "type": "time_average",
+      "observable": "get_servers_busy",
+      "description": "Average number in service"
+    },
+    {
+      "name": "L_system",
+      "type": "time_average",
+      "observable": "in_system",
+      "description": "Average number in system"
+    }
+  ]
+}

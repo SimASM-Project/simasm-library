@@ -1,0 +1,243 @@
+{
+  "model_name": "mm5_eg",
+  "description": "M/M/5 Queue using Event Graph formalism\nBased on Schruben (1983) Event Graph methodology",
+
+  "resources": {
+    "generator": {
+      "type": "Generator",
+      "lists": ["arrivals"],
+      "counters": ["arrival_count"]
+    },
+    "queue": {
+      "type": "Queue",
+      "lists": ["queues"],
+      "counters": ["queue_count"]
+    },
+    "server": {
+      "type": "Server",
+      "lists": ["serves", "departures"],
+      "counters": ["service_count", "departure_count"],
+      "accumulators": ["total_time_in_system", "total_time_in_queue"]
+    }
+  },
+
+  "entities": {
+    "Load": {
+      "name": "Load",
+      "parent": "Object",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time": "Real",
+        "departure_time": "Real"
+      }
+    }
+  },
+
+  "parameters": {
+    "service_capacity": {"type": "Nat", "value": 5, "description": "Number of servers"},
+    "iat_mean": {"type": "Real", "value": 1.25, "description": "Inter-arrival time mean"},
+    "ist_mean": {"type": "Real", "value": 1.0, "description": "Service time mean"},
+    "sim_end_time": {"type": "Real", "value": 1000.0, "description": "Simulation end time"}
+  },
+
+  "state_variables": {
+    "load_id_counter": {"type": "Nat", "initial": 0}
+  },
+
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {"mean": "iat_mean"},
+      "stream_name": "arrivals"
+    },
+    "service_time": {
+      "distribution": "exponential",
+      "params": {"mean": "ist_mean"},
+      "stream_name": "service"
+    }
+  },
+
+  "vertices": [
+    {
+      "name": "Arrive",
+      "parameters": [],
+      "state_changes": [
+        "load_id_counter := load_id_counter + 1",
+        "let load = new Load",
+        "id(load) := load_id_counter",
+        "arrival_time(load) := sim_clocktime",
+        "lib.add(arrivals(generator), load)",
+        "arrival_count(generator) := arrival_count(generator) + 1"
+      ],
+      "local_vars": ["load"],
+      "description": "Customer arrival event"
+    },
+    {
+      "name": "AttemptToStart",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        "lib.add(queues(queue), load)",
+        "queue_count(queue) := queue_count(queue) + 1"
+      ],
+      "description": "Attempt to start service event"
+    },
+    {
+      "name": "Start",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        "lib.remove(queues(queue), load)",
+        "queue_count(queue) := queue_count(queue) - 1",
+        "service_start_time(load) := sim_clocktime",
+        "lib.add(serves(server), load)",
+        "service_count(server) := service_count(server) + 1"
+      ],
+      "description": "Service start event"
+    },
+    {
+      "name": "Finish",
+      "parameters": [{"load": "Load"}],
+      "state_changes": [
+        "lib.remove(serves(server), load)",
+        "service_count(server) := service_count(server) - 1",
+        "departure_time(load) := sim_clocktime",
+        "let time_in_system = sim_clocktime - arrival_time(load)",
+        "let time_in_queue = service_start_time(load) - arrival_time(load)",
+        "total_time_in_system(server) := total_time_in_system(server) + time_in_system",
+        "total_time_in_queue(server) := total_time_in_queue(server) + time_in_queue",
+        "lib.add(departures(server), load)",
+        "departure_count(server) := departure_count(server) + 1"
+      ],
+      "local_vars": ["time_in_system", "time_in_queue"],
+      "description": "Service completion event"
+    }
+  ],
+
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "AttemptToStart",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0,
+      "parameters": ["load"],
+      "comment": "Schedule AttemptToStart for this load (immediate)"
+    },
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "interarrival_time",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [],
+      "comment": "Schedule next arrival"
+    },
+    {
+      "from": "AttemptToStart",
+      "to": "Start",
+      "delay": 0,
+      "condition": "lib.length(serves(server)) < service_capacity and lib.length(queues(queue)) > 0",
+      "priority": 0,
+      "parameters": ["lib.first(queues(queue))"],
+      "comment": "Schedule Start if server available"
+    },
+    {
+      "from": "Start",
+      "to": "Finish",
+      "delay": "service_time",
+      "condition": "true",
+      "priority": 0,
+      "parameters": ["load"],
+      "comment": "Schedule Finish after service time"
+    },
+    {
+      "from": "Finish",
+      "to": "Start",
+      "delay": 0,
+      "condition": "lib.length(queues(queue)) > 0",
+      "priority": 0,
+      "parameters": ["lib.first(queues(queue))"],
+      "comment": "Schedule Start for next load if queue not empty"
+    }
+  ],
+
+  "cancelling_edges": [],
+
+  "initial_events": [
+    {
+      "event": "Arrive",
+      "time": "interarrival_time",
+      "parameters": [],
+      "comment": "Schedule first arrival after first interarrival time"
+    }
+  ],
+
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+
+  "observables": {
+    "get_queue_count": {
+      "name": "get_queue_count",
+      "return_type": "Nat",
+      "expression": "queue_count(queue)",
+      "description": "Number in queue"
+    },
+    "get_servers_busy": {
+      "name": "get_servers_busy",
+      "return_type": "Nat",
+      "expression": "service_count(server)",
+      "description": "Number of busy servers"
+    },
+    "in_system": {
+      "name": "in_system",
+      "return_type": "Nat",
+      "expression": "get_queue_count() + get_servers_busy()",
+      "description": "Total in system"
+    }
+  },
+
+  "predicates": {
+    "queue_predicates": {
+      "prefix": "queue_eq_",
+      "base_expression": "get_queue_count()",
+      "values": [0, 1, 2, 3, 4, 5],
+      "ge_value": 6
+    },
+    "busy_predicates": {
+      "prefix": "busy_eq_",
+      "base_expression": "get_servers_busy()",
+      "values": [0, 1, 2, 3, 4, 5]
+    },
+    "insys_predicates": {
+      "prefix": "insys_eq_",
+      "base_expression": "in_system()",
+      "values": [0, 1, 2, 3, 4, 5],
+      "ge_value": 6
+    }
+  },
+
+  "statistics": [
+    {
+      "name": "L_queue",
+      "type": "time_average",
+      "expression": "lib.length(queues(queue))",
+      "description": "Average queue length"
+    },
+    {
+      "name": "L_service",
+      "type": "time_average",
+      "expression": "lib.length(serves(server))",
+      "description": "Average number in service"
+    },
+    {
+      "name": "L_system",
+      "type": "time_average",
+      "expression": "lib.length(queues(queue)) + lib.length(serves(server))",
+      "description": "Average number in system"
+    },
+    {
+      "name": "throughput",
+      "type": "count",
+      "expression": "departure_count(server)",
+      "description": "Total departures"
+    }
+  ]
+}

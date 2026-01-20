@@ -1,0 +1,247 @@
+// SimASM Grammar v1.0 - Sections 11.1-11.3: Complete Grammar
+// Lark grammar for the SimASM domain-specific language
+
+// ============================================================================
+// Program Structure
+// ============================================================================
+
+// Complete program
+program: declaration*
+
+// Any declaration at top level
+?declaration: import_decl
+            | domain_decl
+            | const_decl
+            | var_decl
+            | static_func_decl
+            | dynamic_func_decl
+            | derived_func_decl
+            | rule_decl
+            | main_rule_decl
+            | init_block
+
+// ============================================================================
+// Declarations
+// ============================================================================
+
+// Import: import Module as alias
+import_decl: "import" IDENTIFIER "as" IDENTIFIER
+
+// Domain: domain Name or domain Child <: Parent
+domain_decl: "domain" IDENTIFIER -> domain_simple
+           | "domain" IDENTIFIER "<:" IDENTIFIER -> domain_extends
+
+// Constant: const name: Type
+const_decl: "const" IDENTIFIER ":" type_expr
+
+// Variable: var name: Type
+var_decl: "var" IDENTIFIER ":" type_expr
+
+// Static function: static function name(params): Type
+static_func_decl: "static" "function" IDENTIFIER "(" param_list? ")" ":" type_expr
+
+// Dynamic function: dynamic function name(params): Type
+dynamic_func_decl: "dynamic" "function" IDENTIFIER "(" param_list? ")" ":" type_expr
+
+// Derived function: derived function name(params): Type = expr
+derived_func_decl: "derived" "function" IDENTIFIER "(" param_list? ")" ":" type_expr "=" expr
+
+// Rule: rule name(params) = body
+rule_decl: "rule" IDENTIFIER "(" param_list? ")" "=" stmt_block "endrule"
+
+// Main rule: main rule name = body
+main_rule_decl: "main" "rule" IDENTIFIER "=" stmt_block "endrule"
+
+// Init block: init: statements endinit
+init_block: "init" ":" stmt_block "endinit"
+
+// ============================================================================
+// Type Expressions
+// ============================================================================
+
+// Type can be simple, parameterized (List<T>), or random stream
+// Stream variables can optionally specify a stream name: rnd.dist(args) as "name"
+type_expr: RND "." IDENTIFIER "(" arg_list? ")" "as" STRING -> rnd_stream_type_named
+         | RND "." IDENTIFIER "(" arg_list? ")" -> rnd_stream_type
+         | IDENTIFIER "<" type_expr ">" -> param_type
+         | IDENTIFIER -> simple_type
+
+// Random stream keyword (must be defined before IDENTIFIER to take priority)
+RND: "rnd"
+
+// Parameter list for functions/rules
+param_list: param ("," param)*
+param: IDENTIFIER ":" type_expr
+
+// ============================================================================
+// Statements
+// ============================================================================
+
+// Statement block (sequence of statements)
+stmt_block: stmt+
+
+// Single statement
+?stmt: skip_stmt
+     | update_stmt
+     | let_stmt
+     | if_stmt
+     | while_stmt
+     | forall_stmt
+     | choose_stmt
+     | par_stmt
+     | rule_call_stmt
+     | lib_call_stmt
+     | rnd_call_stmt
+     | print_stmt
+
+// Skip: do nothing
+skip_stmt: "skip"
+
+// Update: location := value
+update_stmt: location ":=" expr
+
+// Let binding: let x = expr
+let_stmt: "let" IDENTIFIER "=" expr
+
+// If statement: if cond then stmts [elseif cond then stmts]* [else stmts] endif
+if_stmt: "if" expr "then" stmt_block elseif_clause* else_clause? "endif"
+elseif_clause: "elseif" expr "then" stmt_block
+else_clause: "else" stmt_block
+
+// While loop: while cond do stmts endwhile
+while_stmt: "while" expr "do" stmt_block "endwhile"
+
+// Forall: forall x in collection [with guard] do stmts endforall
+forall_stmt: "forall" IDENTIFIER "in" expr forall_guard? "do" stmt_block "endforall"
+forall_guard: "with" expr
+
+// Choose: choose x in collection [with guard] do stmts endchoose
+choose_stmt: "choose" IDENTIFIER "in" expr forall_guard? "do" stmt_block "endchoose"
+
+// Parallel block: par stmts endpar
+par_stmt: "par" stmt_block "endpar"
+
+// Rule call (statement): name(args)
+rule_call_stmt: IDENTIFIER "(" arg_list? ")"
+
+// Library call (statement): lib.func(args)
+lib_call_stmt: "lib" "." IDENTIFIER "(" arg_list? ")"
+
+// Random call (statement): rnd.func(args) or rnd.stream.func(args)
+rnd_call_stmt: RND "." IDENTIFIER "(" arg_list? ")" -> rnd_stmt_default
+             | RND "." IDENTIFIER "." IDENTIFIER "(" arg_list? ")" -> rnd_stmt_stream
+
+// Print statement: print(expr)
+print_stmt: "print" "(" expr ")"
+
+// ============================================================================
+// Expressions (with precedence from lowest to highest)
+// ============================================================================
+
+// Logical OR (lowest precedence)
+?expr: or_expr
+
+?or_expr: and_expr
+        | or_expr "or" and_expr -> or_op
+
+?and_expr: not_expr
+         | and_expr "and" not_expr -> and_op
+
+?not_expr: comparison
+         | "not" not_expr -> not_op
+
+?comparison: arith_expr
+           | comparison "==" arith_expr -> eq_op
+           | comparison "!=" arith_expr -> ne_op
+           | comparison "<" arith_expr -> lt_op
+           | comparison ">" arith_expr -> gt_op
+           | comparison "<=" arith_expr -> le_op
+           | comparison ">=" arith_expr -> ge_op
+
+?arith_expr: term
+           | arith_expr "+" term -> add_op
+           | arith_expr "-" term -> sub_op
+
+?term: unary
+     | term "*" unary -> mul_op
+     | term "/" unary -> div_op
+     | term "%" unary -> mod_op
+
+?unary: primary
+      | "-" unary -> neg_op
+
+?primary: atom
+        | lib_call
+        | rnd_call
+        | new_expr
+        | "(" expr ")"
+
+// ============================================================================
+// Atoms (literals, variables, collections)
+// ============================================================================
+
+?atom: NUMBER -> number
+     | STRING -> string
+     | "true" -> true_lit
+     | "false" -> false_lit
+     | "undef" -> undef_lit
+     | tuple_expr
+     | list_expr
+     | location
+
+// Location: variable or function application f(args)
+?location: IDENTIFIER -> variable
+         | IDENTIFIER "(" arg_list? ")" -> func_app
+
+// ============================================================================
+// Function Calls
+// ============================================================================
+
+// Library call: lib.func(args)
+lib_call: "lib" "." IDENTIFIER "(" arg_list? ")"
+
+// Random call: rnd.func(args) or rnd.stream.func(args)
+rnd_call: RND "." IDENTIFIER "(" arg_list? ")" -> rnd_call_default
+        | RND "." IDENTIFIER "." IDENTIFIER "(" arg_list? ")" -> rnd_call_stream
+
+// New expression: new Domain
+new_expr: "new" IDENTIFIER
+
+// ============================================================================
+// Collections
+// ============================================================================
+
+// Tuple: (a, b) or (a, b, c, ...)
+tuple_expr: "(" expr "," expr ("," expr)* ")"
+
+// List: [] or [a] or [a, b, c]
+list_expr: "[" "]" -> empty_list
+         | "[" expr ("," expr)* "]" -> list_lit
+
+// Argument list (for function calls)
+arg_list: expr ("," expr)*
+
+// ============================================================================
+// Terminals
+// ============================================================================
+
+// Identifiers: start with letter or underscore
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+// Numbers: integers and floats
+NUMBER: FLOAT | INTEGER
+FLOAT: /[0-9]+\.[0-9]*/ | /\.[0-9]+/
+INTEGER: /[0-9]+/
+
+// Strings: double-quoted
+STRING: /"[^"]*"/
+
+// Comments (ignored)
+COMMENT: /\/\/[^\n]*/
+BLOCK_COMMENT: /\/\*(.|\n)*?\*\//
+
+// Whitespace (ignored)
+%ignore /[\t \f]+/
+%ignore COMMENT
+%ignore BLOCK_COMMENT
+%ignore /\r?\n/

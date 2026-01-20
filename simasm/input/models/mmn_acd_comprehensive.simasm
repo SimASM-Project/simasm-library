@@ -1,0 +1,88 @@
+// =============================================================================
+// Comprehensive M/M/n Activity Cycle Diagram Experiment
+// =============================================================================
+// Demonstrates all statistic types with the ACD model
+// Note: Some utilization stats may be less accurate due to three-phase execution
+// Statistic types: count, time_average, utilization, observation, time_series
+
+experiment MMnACDComprehensive:
+    model := "mm5_acd.simasm"
+    
+    replication:
+        count: 10
+        warm_up_time: 100.0
+        run_length: 1000.0
+        seed_strategy: "incremental"
+        base_seed: 42
+    endreplication
+    
+    statistics:
+        // =========================================================================
+        // COUNT STATISTICS - Final value at end of simulation
+        // =========================================================================
+        
+        // Total jobs created (arrivals)
+        stat total_arrivals: count
+            expression: "job_id_counter"
+        endstat
+        
+        // Total jobs completed (departures)
+        stat total_departures: count
+            expression: "marking(Jobs)"
+        endstat
+        
+        // =========================================================================
+        // TIME_AVERAGE STATISTICS - Time-weighted average
+        // =========================================================================
+        
+        // Average queue length (jobs waiting in Q)
+        stat avg_queue_length: time_average
+            expression: "marking(Q)"
+        endstat
+        
+        // Average number in system (queue + in-service)
+        // Note: In ACD, num_servers - marking(S) = busy servers
+        stat avg_in_system: time_average
+            expression: "marking(Q) + (num_servers - marking(S))"
+        endstat
+        
+        // =========================================================================
+        // UTILIZATION STATISTICS - Fraction of time condition is true
+        // =========================================================================
+        
+        // Queue non-empty probability (more reliable than server util for ACD)
+        stat queue_nonempty_prob: utilization
+            expression: "marking(Q) > 0"
+        endstat
+        
+        // Queue has 3+ jobs
+        stat queue_ge3_prob: utilization
+            expression: "marking(Q) >= 3"
+        endstat
+        
+        // =========================================================================
+        // OBSERVATION STATISTICS - Discrete samples (mean of sampled values)
+        // =========================================================================
+        
+        // Sample queue marking at each step
+        stat queue_marking_obs: observation
+            expression: "marking(Q)"
+        endstat
+        
+        // =========================================================================
+        // TIME_SERIES STATISTICS - Sampled at regular intervals
+        // =========================================================================
+        
+        // Queue length sampled every 10 time units
+        stat queue_length_ts: time_series
+            expression: "marking(Q)"
+            interval: 10.0
+        endstat
+        
+    endstatistics
+    
+    output:
+        format: "json"
+        file_path: "../output/mmn_acd_comprehensive_results.json"
+    endoutput
+endexperiment

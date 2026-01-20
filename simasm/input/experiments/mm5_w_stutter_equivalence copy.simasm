@@ -1,0 +1,135 @@
+// =============================================================================
+// Verification: M/M/5 W-Stutter Equivalence (Event Graph vs Activity Cycle Diagram)
+// =============================================================================
+// Verifies W-stutter equivalence between the Event Graph and ACD models
+// of an M/M/5 queueing system.
+//
+// =============================================================================
+// W-STUTTERING THEORY (Mokkedem and Mery, 1997)
+// =============================================================================
+//
+// Definition: Observation Level W
+//   An observation level W is a subset of atomic propositions W <= AP that
+//   represents the properties of interest for verification. State changes
+//   that only affect propositions outside W are considered invisible.
+//
+// Definition: W-Stutter Step
+//   A transition s -> s' is a W-stutter step if L_W(s) = L_W(s'), i.e.,
+//   the observable properties in W remain unchanged.
+//
+// Definition: W-Stutter Equivalence
+//   Transition systems TS_A and TS_B over AP are W-stutter equivalent,
+//   denoted TS_A =_W TS_B, if they are stutter equivalent when both are
+//   restricted to the observation level W.
+//
+// =============================================================================
+// OBSERVATION LEVEL W FOR THIS VERIFICATION
+// =============================================================================
+//
+// We choose W = { busy_eq_0, busy_eq_1, busy_eq_2, busy_eq_3, busy_eq_4, busy_eq_5 }
+//
+// This tracks the NUMBER OF ENTITIES IN SERVICE (servers busy).
+//
+// Observable events at this level:
+//   - START event:  servers_busy increases by 1 (entity enters service)
+//   - FINISH event: servers_busy decreases by 1 (entity leaves service)
+//
+// Invisible at this observation level (W-stutter steps):
+//   - ARRIVE event: only changes queue, not servers_busy (if servers full)
+//   - Queue-to-service transfer details
+//   - Internal ACD three-phase scanning steps
+//   - Internal EG event scheduling steps
+//
+// Rationale:
+//   Both EG and ACD models should have the same number of servers busy
+//   at corresponding points in time. The difference is in how they
+//   manage the queue, which is invisible at this observation level.
+//
+// =============================================================================
+
+verification MM5_W_Stutter_Equivalence:
+
+    models:
+        import EG from "mm5_eg.simasm"
+        import ACD from "mm5_acd.simasm"
+    endmodels
+
+    seed: 42
+
+    labels:
+        // =====================================================================
+        // OBSERVATION LEVEL W: SERVERS BUSY PREDICATES
+        // =====================================================================
+        // W = { busy_eq_0, busy_eq_1, busy_eq_2, busy_eq_3, busy_eq_4, busy_eq_5 }
+        //
+        // These predicates track the number of entities currently in service.
+        // Changes occur only on START (busy++) and FINISH (busy--) events.
+        // =====================================================================
+
+        label busy_eq_0 for EG: "busy_eq_0()"
+        label busy_eq_0 for ACD: "busy_eq_0()"
+
+        label busy_eq_1 for EG: "busy_eq_1()"
+        label busy_eq_1 for ACD: "busy_eq_1()"
+
+        label busy_eq_2 for EG: "busy_eq_2()"
+        label busy_eq_2 for ACD: "busy_eq_2()"
+
+        label busy_eq_3 for EG: "busy_eq_3()"
+        label busy_eq_3 for ACD: "busy_eq_3()"
+
+        label busy_eq_4 for EG: "busy_eq_4()"
+        label busy_eq_4 for ACD: "busy_eq_4()"
+
+        label busy_eq_5 for EG: "busy_eq_5()"
+        label busy_eq_5 for ACD: "busy_eq_5()"
+
+    endlabels
+
+    observables:
+        // Servers busy observables (W = observation level)
+        observable busy_eq_0:
+            EG -> busy_eq_0
+            ACD -> busy_eq_0
+        endobservable
+
+        observable busy_eq_1:
+            EG -> busy_eq_1
+            ACD -> busy_eq_1
+        endobservable
+
+        observable busy_eq_2:
+            EG -> busy_eq_2
+            ACD -> busy_eq_2
+        endobservable
+
+        observable busy_eq_3:
+            EG -> busy_eq_3
+            ACD -> busy_eq_3
+        endobservable
+
+        observable busy_eq_4:
+            EG -> busy_eq_4
+            ACD -> busy_eq_4
+        endobservable
+
+        observable busy_eq_5:
+            EG -> busy_eq_5
+            ACD -> busy_eq_5
+        endobservable
+
+    endobservables
+
+    check:
+        type: stutter_equivalence
+        run_length: 1000.0
+        timeout: 600
+    endcheck
+
+    output:
+        format: "csv"
+        file_path: "mm5_w_stutter_equivalence_results.csv"
+        include_counterexample: true
+    endoutput
+
+endverification

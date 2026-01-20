@@ -1,0 +1,254 @@
+// =============================================================================
+// Event Graph Model: mm5_eg - SimASM
+// =============================================================================
+// M/M/5 Queue using Event Graph formalism - generated from JSON
+// Generated: 2026-01-04 17:25:42
+
+// =============================================================================
+// IMPORT LIBRARIES
+// =============================================================================
+
+import Random as rnd
+import Stdlib as lib
+
+// =============================================================================
+// DOMAIN DECLARATIONS
+// =============================================================================
+
+domain Object
+domain Load <: Object
+
+// Event domain hierarchy
+domain Event <: Object
+domain ArriveEvent <: Event
+domain StartEvent <: Event
+domain FinishEvent <: Event
+
+// =============================================================================
+// CONSTANT DECLARATIONS (Static 0-ary Functions)
+// =============================================================================
+
+
+const service_capacity: Nat  // Number of servers
+const iat_mean: Real  // Inter-arrival time mean
+const ist_mean: Real  // Service time mean
+const sim_end_time: Real  // Simulation end time
+
+// =============================================================================
+// DYNAMIC VARIABLE DECLARATIONS (Dynamic 0-ary Functions)
+// =============================================================================
+
+var future_event_list: List<Event>
+var sim_clocktime: Real
+var current_event: Event
+var queue_count: Nat  // Number in queue
+var server_count: Nat  // Number being served
+var load_id_counter: Nat
+var departure_count: Nat
+var total_time_in_system: Real
+var total_time_in_queue: Real
+
+// =============================================================================
+// RANDOM STREAM VARIABLES
+// =============================================================================
+
+var interarrival_time: rnd.exponential(iat_mean) as "arrivals"
+var service_time: rnd.exponential(ist_mean) as "service"
+
+// =============================================================================
+// STATIC FUNCTION DECLARATIONS
+// =============================================================================
+
+static function id(obj: Object): Nat
+
+// =============================================================================
+// DYNAMIC FUNCTION DECLARATIONS
+// =============================================================================
+
+// Load attributes
+dynamic function arrival_time(l: Load): Real
+dynamic function service_start_time(l: Load): Real
+dynamic function departure_time(l: Load): Real
+
+// Entity lists
+
+// Counters
+
+// Event properties (stored as dynamic functions)
+dynamic function event_rule(e: Event): Rule
+dynamic function event_scheduled_time(e: Event): Real
+dynamic function event_parameters(e: Event): List<Any>
+
+// -----------------------------------------------------------------------------
+// Observable State Derived Functions (for verification)
+// -----------------------------------------------------------------------------
+// These wrap the dynamic function accessors for cleaner predicate syntax
+
+derived function queue_count(): Nat =
+    queue_count
+
+derived function servers_busy(): Nat =
+    server_count
+
+derived function in_system(): Nat =
+    queue_count + server_count
+
+// =============================================================================
+// RULES
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Initialization Routine
+// -----------------------------------------------------------------------------
+
+rule initialisation_routine() =
+    let init_event_0 = new ArriveEvent
+    event_rule(init_event_0) := "arrive"
+    event_scheduled_time(init_event_0) := sim_clocktime + 0
+    event_parameters(init_event_0) := []
+    lib.add(future_event_list, init_event_0)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Timing Routine
+// -----------------------------------------------------------------------------
+
+rule timing_routine() =
+    // Sort FEL by scheduled time
+    lib.sort(future_event_list, "event_scheduled_time")
+
+    if lib.length(future_event_list) > 0 then
+        let next_event = lib.pop(future_event_list)
+
+        // Advance clock
+        sim_clocktime := event_scheduled_time(next_event)
+
+        // Store current event for dispatch
+        current_event := next_event
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// Event Routine (Dispatcher)
+// -----------------------------------------------------------------------------
+
+rule event_routine() =
+    let r = event_rule(current_event)
+    let params = event_parameters(current_event)
+    lib.apply_rule(r, params)
+endrule
+
+// -----------------------------------------------------------------------------
+// Run Routine
+// -----------------------------------------------------------------------------
+
+rule run_routine() =
+    timing_routine()
+    event_routine()
+endrule
+
+// -----------------------------------------------------------------------------
+// Arrive Event Rule
+// -----------------------------------------------------------------------------
+
+rule arrive() =
+    load_id_counter := load_id_counter + 1
+    queue_count := queue_count + 1
+
+    // Schedule Arrive event
+    let arrive_event = new ArriveEvent
+    event_rule(arrive_event) := "arrive"
+    event_scheduled_time(arrive_event) := sim_clocktime + interarrival_time
+    event_parameters(arrive_event) := []
+    lib.add(future_event_list, arrive_event)
+
+    if server_count < service_capacity then
+        // Schedule Start event
+        let start_event_1 = new StartEvent
+        event_rule(start_event_1) := "start"
+        event_scheduled_time(start_event_1) := sim_clocktime
+        event_parameters(start_event_1) := [load]
+        lib.add(future_event_list, start_event_1)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start Event Rule
+// -----------------------------------------------------------------------------
+
+rule start(load: Load) =
+    queue_count := queue_count - 1
+    server_count := server_count + 1
+
+    // Schedule Finish event
+    let finish_event = new FinishEvent
+    event_rule(finish_event) := "finish"
+    event_scheduled_time(finish_event) := sim_clocktime + service_time
+    event_parameters(finish_event) := [load]
+    lib.add(future_event_list, finish_event)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish Event Rule
+// -----------------------------------------------------------------------------
+
+rule finish(load: Load) =
+    server_count := server_count - 1
+    departure_count := departure_count + 1
+
+    if queue_count > 0 and server_count < service_capacity then
+        // Schedule Start event
+        let start_event = new StartEvent
+        event_rule(start_event) := "start"
+        event_scheduled_time(start_event) := sim_clocktime
+        event_parameters(start_event) := [next_load]
+        lib.add(future_event_list, start_event)
+    endif
+
+endrule
+
+// =============================================================================
+// INITIAL STATE
+// =============================================================================
+
+init:
+    // System parameters
+    service_capacity := 5
+    iat_mean := 1.25
+    ist_mean := 1.0
+    sim_end_time := 1000.0
+
+    // Time settings
+    sim_clocktime := 0.0
+
+    // Counters
+    queue_count := 0
+    server_count := 0
+    load_id_counter := 0
+    departure_count := 0
+    total_time_in_system := 0.0
+    total_time_in_queue := 0.0
+
+    // Lists
+    future_event_list := []
+
+endinit
+
+// =============================================================================
+// MAIN RULE
+// =============================================================================
+
+main rule main =
+    // Initialize on first step
+    if sim_clocktime == 0.0 and lib.length(future_event_list) == 0 then
+        initialisation_routine()
+    endif
+
+    // Run while events exist and time not exceeded
+    if lib.length(future_event_list) > 0 and sim_clocktime < sim_end_time then
+        run_routine()
+    endif
+endrule

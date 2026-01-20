@@ -1,0 +1,52 @@
+// =============================================================================
+// M/M/5 Queue Experiment - Event Graph v2 Model
+// =============================================================================
+// Tests the generated mm5_eg_generated.simasm model
+//
+// Model uses simple state variables:
+//   q = queue length (customers waiting)
+//   p = available servers (idle)
+//   k = total servers (constant = 5)
+//
+// For M/M/5 with rho = lambda/(k*mu) = 0.8/5 = 0.16 per server
+// =============================================================================
+
+experiment MM5EG:
+    model := "mm5_eg_generated.simasm"
+
+    replication:
+        count: 5
+        warm_up_time: 100.0
+        run_length: 1000.0
+        seed_strategy: "incremental"
+        base_seed: 42
+    endreplication
+
+    statistics:
+        // L_q: Average number in queue
+        stat L_queue: time_average
+            expression: "q"
+        endstat
+
+        // L_s: Average number in service (k - p = busy servers)
+        stat L_service: time_average
+            expression: "k - p"
+        endstat
+
+        // L: Average number in system
+        stat L_system: time_average
+            expression: "q + (k - p)"
+        endstat
+
+        // Server utilization (fraction of servers busy)
+        stat rho_utilization: time_average
+            expression: "(k - p) / k"
+        endstat
+
+    endstatistics
+
+    output:
+        format: "json"
+        file_path: "mm5_eg_results.json"
+    endoutput
+endexperiment

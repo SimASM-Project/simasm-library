@@ -1,0 +1,112 @@
+// =============================================================================
+// Little's Law Verification - Activity Cycle Diagram M/M/5 Queue
+// =============================================================================
+// Verifies Little's Law: L = lambda * W
+//
+// For M/M/5 queue with:
+//   - lambda = 0.8 (arrival rate = 1/1.25)
+//   - mu = 1.0 (service rate = 1/1.0)
+//   - c = 5 (number of servers)
+//   - a = lambda/mu = 0.8 (offered load)
+//   - rho = a/c = 0.16 (per-server utilization)
+//
+// Theoretical values (M/M/5):
+//   rho = 0.16 (per-server utilization)
+//   L   ~ 0.82 (avg number in system)
+//   L_q ~ 0.02 (avg number in queue, very small for low utilization)
+//   W   ~ 1.03 (avg time in system)
+//
+// Little's Law verification:
+//   L = lambda * W
+//   L_q = lambda * W_q
+// =============================================================================
+
+experiment LittlesLawMM5ACD:
+    model := "../models/mm5_acd_pure.simasm"
+
+    replication:
+        count: 10
+        warm_up_time: 100.0
+        run_length: 1000.0
+        seed_strategy: "incremental"
+        base_seed: 12345
+    endreplication
+
+    statistics:
+        // =========================================================================
+        // SYSTEM METRICS (L, L_q, L_s)
+        // =========================================================================
+
+        // L: Average number in system (queue + in service)
+        stat L_system: time_average
+            expression: "marking(Q) + (num_servers - marking(S))"
+        endstat
+
+        // L_q: Average number in queue
+        stat L_queue: time_average
+            expression: "marking(Q)"
+        endstat
+
+        // L_s: Average number in service (busy servers)
+        stat L_service: time_average
+            expression: "num_servers - marking(S)"
+        endstat
+
+        // =========================================================================
+        // THROUGHPUT AND TIME METRICS
+        // =========================================================================
+
+        // Total arrivals
+        stat total_arrivals: count
+            expression: "job_id_counter"
+        endstat
+
+        // Total departures
+        stat total_departures: count
+            expression: "departure_count"
+        endstat
+
+        // W: Average time in system (from accumulated statistics)
+        stat W_system: count
+            expression: "total_sojourn_time / departure_count"
+        endstat
+
+        // W_q: Average time in queue
+        stat W_queue: count
+            expression: "total_time_in_queue / departure_count"
+        endstat
+
+        // =========================================================================
+        // UTILIZATION
+        // =========================================================================
+
+        // Server utilization (fraction of servers busy)
+        stat rho_utilization: time_average
+            expression: "(num_servers - marking(S)) / num_servers"
+        endstat
+
+        // Average idle servers
+        stat idle_servers: time_average
+            expression: "marking(S)"
+        endstat
+
+    endstatistics
+
+    output:
+        format: "json"
+        file_path: "littles_law_mm5_acd_results.json"
+    endoutput
+endexperiment
+
+// =============================================================================
+// Post-processing to verify Little's Law:
+//
+// From the output JSON:
+//   lambda = total_arrivals / run_length = ~0.8
+//
+// Verification checks:
+//   1. rho_utilization ~ 0.16 (theoretical)
+//   2. L_system ~ 0.82 (theoretical for M/M/5)
+//   3. L = lambda * W (Little's Law)
+//   4. L_q = lambda * W_q (Little's Law for queue)
+// =============================================================================

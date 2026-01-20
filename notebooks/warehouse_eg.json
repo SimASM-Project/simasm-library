@@ -1,0 +1,782 @@
+{
+  "model_name": "warehouse_eg",
+  "description": "Warehouse Outbound Process using Event Graph formalism (Schruben 1983)",
+  "state_variables": {
+    "Q1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Pick Zone A queue"
+    },
+    "Q2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Pick Zone B queue"
+    },
+    "Q3": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Labelling queue"
+    },
+    "Q4": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Scanning queue"
+    },
+    "Q5": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Packing queue"
+    },
+    "Q6": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Release queue"
+    },
+    "S1": {
+      "type": "Nat",
+      "initial": 4,
+      "description": "Pick Zone A available servers"
+    },
+    "S2": {
+      "type": "Nat",
+      "initial": 2,
+      "description": "Pick Zone B available servers"
+    },
+    "S3": {
+      "type": "Nat",
+      "initial": 3,
+      "description": "Labelling available servers"
+    },
+    "S4": {
+      "type": "Nat",
+      "initial": 1,
+      "description": "Scanning available servers"
+    },
+    "S5": {
+      "type": "Nat",
+      "initial": 3,
+      "description": "Packing available servers"
+    },
+    "S6": {
+      "type": "Nat",
+      "initial": 2,
+      "description": "Release available servers"
+    },
+    "departures": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Total completed jobs"
+    }
+  },
+  "parameters": {
+    "Q1_max": {
+      "type": "Nat",
+      "value": 30
+    },
+    "Q2_max": {
+      "type": "Nat",
+      "value": 20
+    },
+    "Q3_max": {
+      "type": "Nat",
+      "value": 50
+    },
+    "Q4_max": {
+      "type": "Nat",
+      "value": 20
+    },
+    "Q5_max": {
+      "type": "Nat",
+      "value": 30
+    },
+    "Q6_max": {
+      "type": "Nat",
+      "value": 20
+    },
+    "S1_capacity": {
+      "type": "Nat",
+      "value": 4
+    },
+    "S2_capacity": {
+      "type": "Nat",
+      "value": 2
+    },
+    "S3_capacity": {
+      "type": "Nat",
+      "value": 3
+    },
+    "S4_capacity": {
+      "type": "Nat",
+      "value": 1
+    },
+    "S5_capacity": {
+      "type": "Nat",
+      "value": 3
+    },
+    "S6_capacity": {
+      "type": "Nat",
+      "value": 2
+    },
+    "iat_c1_mean": {
+      "type": "Real",
+      "value": 325.5
+    },
+    "iat_c2_mean": {
+      "type": "Real",
+      "value": 527.6
+    },
+    "iat_c3_mean": {
+      "type": "Real",
+      "value": 226.1
+    },
+    "iat_c4_mean": {
+      "type": "Real",
+      "value": 985.6
+    },
+    "ist_s1_mean": {
+      "type": "Real",
+      "value": 78.4
+    },
+    "ist_s2_mean": {
+      "type": "Real",
+      "value": 76.2
+    },
+    "ist_s3_mean": {
+      "type": "Real",
+      "value": 288.8
+    },
+    "ist_s4_mean": {
+      "type": "Real",
+      "value": 31.2
+    },
+    "ist_s5_mean": {
+      "type": "Real",
+      "value": 66.8
+    },
+    "ist_s6_mean": {
+      "type": "Real",
+      "value": 1.0
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 10000.0
+    }
+  },
+  "random_streams": {
+    "T_c1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c1_mean"
+      },
+      "stream_name": "creation_za1"
+    },
+    "T_c2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c2_mean"
+      },
+      "stream_name": "creation_za2"
+    },
+    "T_c3": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c3_mean"
+      },
+      "stream_name": "creation_zb1"
+    },
+    "T_c4": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_c4_mean"
+      },
+      "stream_name": "creation_zb2"
+    },
+    "T_s1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s1_mean"
+      },
+      "stream_name": "service_pick_a"
+    },
+    "T_s2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s2_mean"
+      },
+      "stream_name": "service_pick_b"
+    },
+    "T_s3": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s3_mean"
+      },
+      "stream_name": "service_label"
+    },
+    "T_s4": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s4_mean"
+      },
+      "stream_name": "service_scan"
+    },
+    "T_s5": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s5_mean"
+      },
+      "stream_name": "service_pack"
+    },
+    "T_s6": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_s6_mean"
+      },
+      "stream_name": "service_release"
+    }
+  },
+  "vertices": [
+    {
+      "name": "CreateZA1",
+      "state_change": "",
+      "description": "Create Zone A Type 1 job"
+    },
+    {
+      "name": "CreateZA2",
+      "state_change": "",
+      "description": "Create Zone A Type 2 job"
+    },
+    {
+      "name": "CreateZB1",
+      "state_change": "",
+      "description": "Create Zone B Type 1 job"
+    },
+    {
+      "name": "CreateZB2",
+      "state_change": "",
+      "description": "Create Zone B Type 2 job"
+    },
+    {
+      "name": "AttemptQueueZAT1",
+      "state_change": "",
+      "description": "Attempt Queue Zone A Type 1"
+    },
+    {
+      "name": "AttemptQueueZAT2",
+      "state_change": "",
+      "description": "Attempt Queue Zone A Type 2"
+    },
+    {
+      "name": "AttemptQueueZBT1",
+      "state_change": "",
+      "description": "Attempt Queue Zone B Type 1"
+    },
+    {
+      "name": "AttemptQueueZBT2",
+      "state_change": "",
+      "description": "Attempt Queue Zone B Type 2"
+    },
+    {
+      "name": "QueueQ1",
+      "state_change": "Q1 := Q1 + 1",
+      "description": "Queue in Pick Zone A"
+    },
+    {
+      "name": "QueueQ2",
+      "state_change": "Q2 := Q2 + 1",
+      "description": "Queue in Pick Zone B"
+    },
+    {
+      "name": "AttemptPickA",
+      "state_change": "",
+      "description": "Attempt Pick Zone A"
+    },
+    {
+      "name": "AttemptPickB",
+      "state_change": "",
+      "description": "Attempt Pick Zone B"
+    },
+    {
+      "name": "StartPickA",
+      "state_change": "Q1 := Q1 - 1; S1 := S1 - 1",
+      "description": "Start Pick A"
+    },
+    {
+      "name": "StartPickB",
+      "state_change": "Q2 := Q2 - 1; S2 := S2 - 1",
+      "description": "Start Pick B"
+    },
+    {
+      "name": "FinishPickA",
+      "state_change": "S1 := S1 + 1",
+      "description": "Finish Pick A"
+    },
+    {
+      "name": "FinishPickB",
+      "state_change": "S2 := S2 + 1",
+      "description": "Finish Pick B"
+    },
+    {
+      "name": "AttemptQueueQ3",
+      "state_change": "",
+      "description": "Attempt Queue after Picking"
+    },
+    {
+      "name": "QueueQ3",
+      "state_change": "Q3 := Q3 + 1",
+      "description": "Queue after Picking"
+    },
+    {
+      "name": "AttemptLabel",
+      "state_change": "",
+      "description": "Attempt Label"
+    },
+    {
+      "name": "StartLabel",
+      "state_change": "Q3 := Q3 - 1; S3 := S3 - 1",
+      "description": "Start Label"
+    },
+    {
+      "name": "FinishLabel",
+      "state_change": "S3 := S3 + 1",
+      "description": "Finish Label"
+    },
+    {
+      "name": "AttemptQueueQ4",
+      "state_change": "",
+      "description": "Attempt Queue after Labelling"
+    },
+    {
+      "name": "QueueQ4",
+      "state_change": "Q4 := Q4 + 1",
+      "description": "Queue after Labelling"
+    },
+    {
+      "name": "AttemptScan",
+      "state_change": "",
+      "description": "Attempt Scan"
+    },
+    {
+      "name": "StartScan",
+      "state_change": "Q4 := Q4 - 1; S4 := S4 - 1",
+      "description": "Start Scan"
+    },
+    {
+      "name": "FinishScan",
+      "state_change": "S4 := S4 + 1",
+      "description": "Finish Scan"
+    },
+    {
+      "name": "AttemptQueueQ5",
+      "state_change": "",
+      "description": "Attempt Queue after Scanning"
+    },
+    {
+      "name": "QueueQ5",
+      "state_change": "Q5 := Q5 + 1",
+      "description": "Queue after Scanning"
+    },
+    {
+      "name": "AttemptPack",
+      "state_change": "",
+      "description": "Attempt Pack"
+    },
+    {
+      "name": "StartPack",
+      "state_change": "Q5 := Q5 - 1; S5 := S5 - 1",
+      "description": "Start Pack"
+    },
+    {
+      "name": "FinishPack",
+      "state_change": "S5 := S5 + 1",
+      "description": "Finish Pack"
+    },
+    {
+      "name": "AttemptQueueQ6",
+      "state_change": "",
+      "description": "Attempt Queue after Packing"
+    },
+    {
+      "name": "QueueQ6",
+      "state_change": "Q6 := Q6 + 1",
+      "description": "Queue after Packing"
+    },
+    {
+      "name": "AttemptRelease",
+      "state_change": "",
+      "description": "Attempt Release"
+    },
+    {
+      "name": "StartRelease",
+      "state_change": "Q6 := Q6 - 1; S6 := S6 - 1",
+      "description": "Start Release"
+    },
+    {
+      "name": "FinishRelease",
+      "state_change": "S6 := S6 + 1; departures := departures + 1",
+      "description": "Finish Release"
+    }
+  ],
+  "scheduling_edges": [
+    {
+      "from": "CreateZA1",
+      "to": "CreateZA1",
+      "delay": "T_c1",
+      "condition": "true",
+      "priority": 1
+    },
+    {
+      "from": "CreateZA1",
+      "to": "AttemptQueueZAT1",
+      "delay": 0,
+      "condition": "true",
+      "priority": 1
+    },
+    {
+      "from": "CreateZA2",
+      "to": "CreateZA2",
+      "delay": "T_c2",
+      "condition": "true",
+      "priority": 2
+    },
+    {
+      "from": "CreateZA2",
+      "to": "AttemptQueueZAT2",
+      "delay": 0,
+      "condition": "true",
+      "priority": 2
+    },
+    {
+      "from": "CreateZB1",
+      "to": "CreateZB1",
+      "delay": "T_c3",
+      "condition": "true",
+      "priority": 3
+    },
+    {
+      "from": "CreateZB1",
+      "to": "AttemptQueueZBT1",
+      "delay": 0,
+      "condition": "true",
+      "priority": 3
+    },
+    {
+      "from": "CreateZB2",
+      "to": "CreateZB2",
+      "delay": "T_c4",
+      "condition": "true",
+      "priority": 4
+    },
+    {
+      "from": "CreateZB2",
+      "to": "AttemptQueueZBT2",
+      "delay": 0,
+      "condition": "true",
+      "priority": 4
+    },
+    {
+      "from": "AttemptQueueZAT1",
+      "to": "QueueQ1",
+      "delay": 0,
+      "condition": "Q1 < Q1_max",
+      "priority": 5
+    },
+    {
+      "from": "AttemptQueueZAT2",
+      "to": "QueueQ1",
+      "delay": 0,
+      "condition": "Q1 < Q1_max",
+      "priority": 5
+    },
+    {
+      "from": "AttemptQueueZBT1",
+      "to": "QueueQ2",
+      "delay": 0,
+      "condition": "Q2 < Q2_max",
+      "priority": 5
+    },
+    {
+      "from": "AttemptQueueZBT2",
+      "to": "QueueQ2",
+      "delay": 0,
+      "condition": "Q2 < Q2_max",
+      "priority": 5
+    },
+    {
+      "from": "QueueQ1",
+      "to": "AttemptPickA",
+      "delay": 0,
+      "condition": "true",
+      "priority": 6
+    },
+    {
+      "from": "QueueQ2",
+      "to": "AttemptPickB",
+      "delay": 0,
+      "condition": "true",
+      "priority": 6
+    },
+    {
+      "from": "AttemptPickA",
+      "to": "StartPickA",
+      "delay": 0,
+      "condition": "S1 > 0 and Q1 > 0",
+      "priority": 7
+    },
+    {
+      "from": "StartPickA",
+      "to": "FinishPickA",
+      "delay": "T_s1",
+      "condition": "true",
+      "priority": 5
+    },
+    {
+      "from": "FinishPickA",
+      "to": "AttemptQueueQ3",
+      "delay": 0,
+      "condition": "true",
+      "priority": 7
+    },
+    {
+      "from": "FinishPickA",
+      "to": "AttemptPickA",
+      "delay": 0,
+      "condition": "true",
+      "priority": 7
+    },
+    {
+      "from": "AttemptPickB",
+      "to": "StartPickB",
+      "delay": 0,
+      "condition": "S2 > 0 and Q2 > 0",
+      "priority": 7
+    },
+    {
+      "from": "StartPickB",
+      "to": "FinishPickB",
+      "delay": "T_s2",
+      "condition": "true",
+      "priority": 6
+    },
+    {
+      "from": "FinishPickB",
+      "to": "AttemptQueueQ3",
+      "delay": 0,
+      "condition": "true",
+      "priority": 6
+    },
+    {
+      "from": "FinishPickB",
+      "to": "AttemptPickB",
+      "delay": 0,
+      "condition": "true",
+      "priority": 6
+    },
+    {
+      "from": "AttemptQueueQ3",
+      "to": "QueueQ3",
+      "delay": 0,
+      "condition": "Q3 < Q3_max",
+      "priority": 8
+    },
+    {
+      "from": "QueueQ3",
+      "to": "AttemptLabel",
+      "delay": 0,
+      "condition": "true",
+      "priority": 9
+    },
+    {
+      "from": "AttemptLabel",
+      "to": "StartLabel",
+      "delay": 0,
+      "condition": "S3 > 0 and Q3 > 0",
+      "priority": 7
+    },
+    {
+      "from": "StartLabel",
+      "to": "FinishLabel",
+      "delay": "T_s3",
+      "condition": "true",
+      "priority": 7
+    },
+    {
+      "from": "FinishLabel",
+      "to": "AttemptQueueQ4",
+      "delay": 0,
+      "condition": "true",
+      "priority": 8
+    },
+    {
+      "from": "FinishLabel",
+      "to": "AttemptLabel",
+      "delay": 0,
+      "condition": "true",
+      "priority": 7
+    },
+    {
+      "from": "AttemptQueueQ4",
+      "to": "QueueQ4",
+      "delay": 0,
+      "condition": "Q4 < Q4_max",
+      "priority": 9
+    },
+    {
+      "from": "QueueQ4",
+      "to": "AttemptScan",
+      "delay": 0,
+      "condition": "true",
+      "priority": 10
+    },
+    {
+      "from": "AttemptScan",
+      "to": "StartScan",
+      "delay": 0,
+      "condition": "S4 > 0 and Q4 > 0",
+      "priority": 8
+    },
+    {
+      "from": "StartScan",
+      "to": "FinishScan",
+      "delay": "T_s4",
+      "condition": "true",
+      "priority": 8
+    },
+    {
+      "from": "FinishScan",
+      "to": "AttemptQueueQ5",
+      "delay": 0,
+      "condition": "true",
+      "priority": 9
+    },
+    {
+      "from": "FinishScan",
+      "to": "AttemptScan",
+      "delay": 0,
+      "condition": "true",
+      "priority": 8
+    },
+    {
+      "from": "AttemptQueueQ5",
+      "to": "QueueQ5",
+      "delay": 0,
+      "condition": "Q5 < Q5_max",
+      "priority": 10
+    },
+    {
+      "from": "QueueQ5",
+      "to": "AttemptPack",
+      "delay": 0,
+      "condition": "true",
+      "priority": 9
+    },
+    {
+      "from": "AttemptPack",
+      "to": "StartPack",
+      "delay": 0,
+      "condition": "S5 > 0 and Q5 > 0",
+      "priority": 9
+    },
+    {
+      "from": "StartPack",
+      "to": "FinishPack",
+      "delay": "T_s5",
+      "condition": "true",
+      "priority": 9
+    },
+    {
+      "from": "FinishPack",
+      "to": "AttemptQueueQ6",
+      "delay": 0,
+      "condition": "true",
+      "priority": 10
+    },
+    {
+      "from": "FinishPack",
+      "to": "AttemptPack",
+      "delay": 0,
+      "condition": "true",
+      "priority": 9
+    },
+    {
+      "from": "AttemptQueueQ6",
+      "to": "QueueQ6",
+      "delay": 0,
+      "condition": "Q6 < Q6_max",
+      "priority": 10
+    },
+    {
+      "from": "QueueQ6",
+      "to": "AttemptRelease",
+      "delay": 0,
+      "condition": "true",
+      "priority": 10
+    },
+    {
+      "from": "AttemptRelease",
+      "to": "StartRelease",
+      "delay": 0,
+      "condition": "S6 > 0 and Q6 > 0",
+      "priority": 10
+    },
+    {
+      "from": "StartRelease",
+      "to": "FinishRelease",
+      "delay": "T_s6",
+      "condition": "true",
+      "priority": 10
+    },
+    {
+      "from": "FinishRelease",
+      "to": "AttemptRelease",
+      "delay": 0,
+      "condition": "true",
+      "priority": 10
+    }
+  ],
+  "cancelling_edges": [],
+  "initial_events": [
+    {
+      "event": "CreateZA1",
+      "time": "T_c1"
+    },
+    {
+      "event": "CreateZA2",
+      "time": "T_c2"
+    },
+    {
+      "event": "CreateZB1",
+      "time": "T_c3"
+    },
+    {
+      "event": "CreateZB2",
+      "time": "T_c4"
+    }
+  ],
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+  "observables": {
+    "get_S1_busy": {
+      "expression": "S1_capacity - S1",
+      "return_type": "Nat"
+    },
+    "get_S2_busy": {
+      "expression": "S2_capacity - S2",
+      "return_type": "Nat"
+    },
+    "get_S3_busy": {
+      "expression": "S3_capacity - S3",
+      "return_type": "Nat"
+    },
+    "get_S4_busy": {
+      "expression": "S4_capacity - S4",
+      "return_type": "Nat"
+    },
+    "get_S5_busy": {
+      "expression": "S5_capacity - S5",
+      "return_type": "Nat"
+    },
+    "get_S6_busy": {
+      "expression": "S6_capacity - S6",
+      "return_type": "Nat"
+    }
+  }
+}

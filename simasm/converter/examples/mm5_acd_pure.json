@@ -1,0 +1,189 @@
+{
+  "model_name": "mm5_acd",
+  "description": "M/M/5 Queue using Activity Cycle Diagram formalism\nBased on Tocher (1960) and Carrie (1988)\nFine-grained step semantics for trace equivalence",
+
+  "parameters": {
+    "num_servers": {"type": "Nat", "value": 5, "description": "Number of servers (N in M/M/N)"},
+    "iat_mean": {"type": "Real", "value": 1.25, "description": "Inter-arrival time mean (1/lambda)"},
+    "ist_mean": {"type": "Real", "value": 1.0, "description": "Service time mean (1/mu)"},
+    "sim_end_time": {"type": "Real", "value": 1000.0, "description": "Simulation end time"}
+  },
+
+  "token_types": {
+    "Job": {
+      "name": "Job",
+      "parent": "Token",
+      "attributes": {
+        "arrival_time": {"type": "Real", "description": "Time job arrived"},
+        "service_start_time": {"type": "Real", "description": "Time job started service"}
+      },
+      "description": "Customer job token"
+    },
+    "Resource": {
+      "name": "Resource",
+      "parent": "Token",
+      "description": "Reusable resource token (creator, server)"
+    }
+  },
+
+  "queues": {
+    "C": {
+      "initial_tokens": 1,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Creator resource queue (bound activity driver)"
+    },
+    "Q": {
+      "initial_tokens": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Job waiting queue"
+    },
+    "S": {
+      "initial_tokens": 5,
+      "token_type": "Resource",
+      "is_resource": true,
+      "description": "Server resource queue"
+    },
+    "Jobs": {
+      "initial_tokens": 0,
+      "token_type": "Job",
+      "is_resource": false,
+      "description": "Completed jobs (sink)"
+    }
+  },
+
+  "activities": [
+    {
+      "name": "Create",
+      "priority": 1,
+      "duration": "interarrival_time",
+      "description": "Job creation activity (bound activity)",
+      "at_begin": {
+        "condition": "true",
+        "consume": [
+          {"queue": "C", "count": 1, "bind_as": "creator_token"}
+        ],
+        "actions": []
+      },
+      "at_end": [
+        {
+          "condition": "true",
+          "produce": [
+            {"queue": "C", "count": 1, "token_source": "creator_token"},
+            {"queue": "Q", "count": 1, "token_source": "new"}
+          ],
+          "actions": [
+            {"op": "increment", "var": "job_id_counter"},
+            {"op": "set_attribute", "entity": "new_token_0", "attribute": "id", "value": "job_id_counter"},
+            {"op": "set_attribute", "entity": "new_token_0", "attribute": "arrival_time", "value": "sim_clocktime"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Serve",
+      "priority": 2,
+      "duration": "service_time",
+      "description": "Service activity (conditional activity)",
+      "at_begin": {
+        "condition": "true",
+        "consume": [
+          {"queue": "S", "count": 1, "bind_as": "server_token"},
+          {"queue": "Q", "count": 1, "bind_as": "job_token"}
+        ],
+        "actions": [
+          {"op": "set_attribute", "entity": "job_token", "attribute": "service_start_time", "value": "sim_clocktime"}
+        ]
+      },
+      "at_end": [
+        {
+          "condition": "true",
+          "produce": [
+            {"queue": "S", "count": 1, "token_source": "server_token"},
+            {"queue": "Jobs", "count": 1, "token_source": "job_token"}
+          ],
+          "actions": [
+            {"op": "increment", "var": "departure_count"},
+            {"op": "compute", "var": "time_in_system", "expression": "sim_clocktime - arrival_time(job_token)"},
+            {"op": "compute", "var": "time_in_queue", "expression": "service_start_time(job_token) - arrival_time(job_token)"},
+            {"op": "accumulate", "var": "total_sojourn_time", "value": "time_in_system"},
+            {"op": "accumulate", "var": "total_time_in_queue", "value": "time_in_queue"}
+          ]
+        }
+      ]
+    }
+  ],
+
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {"mean": "iat_mean"},
+      "stream_name": "arrivals"
+    },
+    "service_time": {
+      "distribution": "exponential",
+      "params": {"mean": "ist_mean"},
+      "stream_name": "service"
+    }
+  },
+
+  "state_variables": {
+    "job_id_counter": {"type": "Nat", "initial": 0},
+    "departure_count": {"type": "Nat", "initial": 0},
+    "total_sojourn_time": {"type": "Real", "initial": 0.0},
+    "total_time_in_queue": {"type": "Real", "initial": 0.0}
+  },
+
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+
+  "observables": {
+    "queue_count": {
+      "name": "queue_count",
+      "return_type": "Nat",
+      "expression": "marking(Q)",
+      "description": "Number in queue"
+    },
+    "servers_busy": {
+      "name": "servers_busy",
+      "return_type": "Nat",
+      "expression": "num_servers - marking(S)",
+      "description": "Number of busy servers"
+    },
+    "in_system": {
+      "name": "in_system",
+      "return_type": "Nat",
+      "expression": "marking(Q) + (num_servers - marking(S))",
+      "description": "Total in system"
+    }
+  },
+
+  "statistics": [
+    {
+      "name": "L_queue",
+      "type": "time_average",
+      "observable": "queue_count",
+      "description": "Average queue length"
+    },
+    {
+      "name": "L_service",
+      "type": "time_average",
+      "observable": "servers_busy",
+      "description": "Average number in service"
+    },
+    {
+      "name": "L_system",
+      "type": "time_average",
+      "observable": "in_system",
+      "description": "Average number in system"
+    }
+  ],
+
+  "fine_grained_semantics": {
+    "description": "Fine-grained Activity Scanning for trace equivalence with Event Graph",
+    "phase_sequence": ["init", "scan", "time", "execute"],
+    "scanning_rule": "Try ONE activity per ASM step in priority order",
+    "activity_order": "Activities scanned by priority (lower = first): Create(1) before Serve(2)",
+    "separation": "Timing phase and scanning phase are SEPARATE ASM steps"
+  }
+}

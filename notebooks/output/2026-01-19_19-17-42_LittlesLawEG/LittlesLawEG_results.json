@@ -1,0 +1,416 @@
+{
+  "experiment": "LittlesLawEG",
+  "metadata": {
+    "num_replications": 30,
+    "total_wall_time": 15.247,
+    "generated_at": "2026-01-19T19:17:42.908360"
+  },
+  "replications": [
+    {
+      "id": 1,
+      "seed": 12345,
+      "final_time": 1000.4893,
+      "steps_taken": 3239,
+      "statistics": {
+        "L_system": 0.7579,
+        "L_queue": 0.0,
+        "L_service": 0.7579,
+        "rho_utilization": 0.1516
+      }
+    },
+    {
+      "id": 2,
+      "seed": 12346,
+      "final_time": 1000.1738,
+      "steps_taken": 3122,
+      "statistics": {
+        "L_system": 0.7951,
+        "L_queue": 0.0,
+        "L_service": 0.7951,
+        "rho_utilization": 0.159
+      }
+    },
+    {
+      "id": 3,
+      "seed": 12347,
+      "final_time": 1000.395,
+      "steps_taken": 3116,
+      "statistics": {
+        "L_system": 0.8089,
+        "L_queue": 0.0008,
+        "L_service": 0.8081,
+        "rho_utilization": 0.1616
+      }
+    },
+    {
+      "id": 4,
+      "seed": 12348,
+      "final_time": 1001.0847,
+      "steps_taken": 3090,
+      "statistics": {
+        "L_system": 0.7751,
+        "L_queue": 0.0,
+        "L_service": 0.7751,
+        "rho_utilization": 0.155
+      }
+    },
+    {
+      "id": 5,
+      "seed": 12349,
+      "final_time": 1000.2815,
+      "steps_taken": 3306,
+      "statistics": {
+        "L_system": 0.8846,
+        "L_queue": 0.0,
+        "L_service": 0.8846,
+        "rho_utilization": 0.1769
+      }
+    },
+    {
+      "id": 6,
+      "seed": 12350,
+      "final_time": 1001.8407,
+      "steps_taken": 3225,
+      "statistics": {
+        "L_system": 0.8041,
+        "L_queue": 0.0,
+        "L_service": 0.8041,
+        "rho_utilization": 0.1608
+      }
+    },
+    {
+      "id": 7,
+      "seed": 12351,
+      "final_time": 1000.1736,
+      "steps_taken": 3186,
+      "statistics": {
+        "L_system": 0.8372,
+        "L_queue": 0.0017,
+        "L_service": 0.8355,
+        "rho_utilization": 0.1671
+      }
+    },
+    {
+      "id": 8,
+      "seed": 12352,
+      "final_time": 1003.6485,
+      "steps_taken": 3209,
+      "statistics": {
+        "L_system": 0.8664,
+        "L_queue": 0.0,
+        "L_service": 0.8664,
+        "rho_utilization": 0.1733
+      }
+    },
+    {
+      "id": 9,
+      "seed": 12353,
+      "final_time": 1000.7199,
+      "steps_taken": 3061,
+      "statistics": {
+        "L_system": 0.7334,
+        "L_queue": 0.0,
+        "L_service": 0.7334,
+        "rho_utilization": 0.1467
+      }
+    },
+    {
+      "id": 10,
+      "seed": 12354,
+      "final_time": 1000.3514,
+      "steps_taken": 3347,
+      "statistics": {
+        "L_system": 0.8136,
+        "L_queue": 0.0003,
+        "L_service": 0.8133,
+        "rho_utilization": 0.1627
+      }
+    },
+    {
+      "id": 11,
+      "seed": 12355,
+      "final_time": 1000.2041,
+      "steps_taken": 3150,
+      "statistics": {
+        "L_system": 0.8017,
+        "L_queue": 0.0008,
+        "L_service": 0.8008,
+        "rho_utilization": 0.1602
+      }
+    },
+    {
+      "id": 12,
+      "seed": 12356,
+      "final_time": 1000.497,
+      "steps_taken": 3133,
+      "statistics": {
+        "L_system": 0.7572,
+        "L_queue": 0.0,
+        "L_service": 0.7572,
+        "rho_utilization": 0.1514
+      }
+    },
+    {
+      "id": 13,
+      "seed": 12357,
+      "final_time": 1000.965,
+      "steps_taken": 3276,
+      "statistics": {
+        "L_system": 0.8065,
+        "L_queue": 0.0006,
+        "L_service": 0.8059,
+        "rho_utilization": 0.1612
+      }
+    },
+    {
+      "id": 14,
+      "seed": 12358,
+      "final_time": 1000.7406,
+      "steps_taken": 3148,
+      "statistics": {
+        "L_system": 0.8541,
+        "L_queue": 0.0,
+        "L_service": 0.8541,
+        "rho_utilization": 0.1708
+      }
+    },
+    {
+      "id": 15,
+      "seed": 12359,
+      "final_time": 1000.2085,
+      "steps_taken": 3230,
+      "statistics": {
+        "L_system": 0.8069,
+        "L_queue": 0.0004,
+        "L_service": 0.8064,
+        "rho_utilization": 0.1613
+      }
+    },
+    {
+      "id": 16,
+      "seed": 12360,
+      "final_time": 1000.2679,
+      "steps_taken": 3216,
+      "statistics": {
+        "L_system": 0.8061,
+        "L_queue": 0.0005,
+        "L_service": 0.8056,
+        "rho_utilization": 0.1611
+      }
+    },
+    {
+      "id": 17,
+      "seed": 12361,
+      "final_time": 1000.1612,
+      "steps_taken": 3235,
+      "statistics": {
+        "L_system": 0.8477,
+        "L_queue": 0.0011,
+        "L_service": 0.8466,
+        "rho_utilization": 0.1693
+      }
+    },
+    {
+      "id": 18,
+      "seed": 12362,
+      "final_time": 1000.9265,
+      "steps_taken": 3272,
+      "statistics": {
+        "L_system": 0.8318,
+        "L_queue": 0.0,
+        "L_service": 0.8318,
+        "rho_utilization": 0.1664
+      }
+    },
+    {
+      "id": 19,
+      "seed": 12363,
+      "final_time": 1000.0191,
+      "steps_taken": 3237,
+      "statistics": {
+        "L_system": 0.8163,
+        "L_queue": 0.0023,
+        "L_service": 0.814,
+        "rho_utilization": 0.1628
+      }
+    },
+    {
+      "id": 20,
+      "seed": 12364,
+      "final_time": 1000.6431,
+      "steps_taken": 3194,
+      "statistics": {
+        "L_system": 0.7816,
+        "L_queue": 0.0003,
+        "L_service": 0.7813,
+        "rho_utilization": 0.1563
+      }
+    },
+    {
+      "id": 21,
+      "seed": 12365,
+      "final_time": 1001.7236,
+      "steps_taken": 3190,
+      "statistics": {
+        "L_system": 0.7693,
+        "L_queue": 0.0001,
+        "L_service": 0.7692,
+        "rho_utilization": 0.1538
+      }
+    },
+    {
+      "id": 22,
+      "seed": 12366,
+      "final_time": 1000.1929,
+      "steps_taken": 3214,
+      "statistics": {
+        "L_system": 0.795,
+        "L_queue": 0.0,
+        "L_service": 0.795,
+        "rho_utilization": 0.159
+      }
+    },
+    {
+      "id": 23,
+      "seed": 12367,
+      "final_time": 1000.6769,
+      "steps_taken": 3231,
+      "statistics": {
+        "L_system": 0.8385,
+        "L_queue": 0.0027,
+        "L_service": 0.8358,
+        "rho_utilization": 0.1672
+      }
+    },
+    {
+      "id": 24,
+      "seed": 12368,
+      "final_time": 1000.7031,
+      "steps_taken": 3141,
+      "statistics": {
+        "L_system": 0.8117,
+        "L_queue": 0.0,
+        "L_service": 0.8117,
+        "rho_utilization": 0.1623
+      }
+    },
+    {
+      "id": 25,
+      "seed": 12369,
+      "final_time": 1000.1683,
+      "steps_taken": 3248,
+      "statistics": {
+        "L_system": 0.7681,
+        "L_queue": 0.0,
+        "L_service": 0.7681,
+        "rho_utilization": 0.1536
+      }
+    },
+    {
+      "id": 26,
+      "seed": 12370,
+      "final_time": 1000.6228,
+      "steps_taken": 3031,
+      "statistics": {
+        "L_system": 0.7184,
+        "L_queue": 0.0024,
+        "L_service": 0.716,
+        "rho_utilization": 0.1432
+      }
+    },
+    {
+      "id": 27,
+      "seed": 12371,
+      "final_time": 1000.4138,
+      "steps_taken": 3262,
+      "statistics": {
+        "L_system": 0.8199,
+        "L_queue": 0.0001,
+        "L_service": 0.8198,
+        "rho_utilization": 0.164
+      }
+    },
+    {
+      "id": 28,
+      "seed": 12372,
+      "final_time": 1000.0849,
+      "steps_taken": 3184,
+      "statistics": {
+        "L_system": 0.7835,
+        "L_queue": 0.0,
+        "L_service": 0.7835,
+        "rho_utilization": 0.1567
+      }
+    },
+    {
+      "id": 29,
+      "seed": 12373,
+      "final_time": 1002.4006,
+      "steps_taken": 3333,
+      "statistics": {
+        "L_system": 0.8047,
+        "L_queue": 0.0,
+        "L_service": 0.8047,
+        "rho_utilization": 0.1609
+      }
+    },
+    {
+      "id": 30,
+      "seed": 12374,
+      "final_time": 1003.0371,
+      "steps_taken": 3231,
+      "statistics": {
+        "L_system": 0.8737,
+        "L_queue": 0.0003,
+        "L_service": 0.8733,
+        "rho_utilization": 0.1747
+      }
+    }
+  ],
+  "summary": {
+    "L_system": {
+      "mean": 0.8056,
+      "std_dev": 0.0391,
+      "min": 0.7184,
+      "max": 0.8846,
+      "ci_95": [
+        0.791,
+        0.8202
+      ],
+      "n": 30
+    },
+    "L_queue": {
+      "mean": 0.0005,
+      "std_dev": 0.0008,
+      "min": 0.0,
+      "max": 0.0027,
+      "ci_95": [
+        0.0002,
+        0.0008
+      ],
+      "n": 30
+    },
+    "L_service": {
+      "mean": 0.8051,
+      "std_dev": 0.0391,
+      "min": 0.716,
+      "max": 0.8846,
+      "ci_95": [
+        0.7905,
+        0.8197
+      ],
+      "n": 30
+    },
+    "rho_utilization": {
+      "mean": 0.161,
+      "std_dev": 0.0078,
+      "min": 0.1432,
+      "max": 0.1769,
+      "ci_95": [
+        0.1581,
+        0.1639
+      ],
+      "n": 30
+    }
+  }
+}

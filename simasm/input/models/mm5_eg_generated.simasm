@@ -1,0 +1,258 @@
+// =============================================================================
+// Event Graph Model: mm5_eg
+// =============================================================================
+// M/M/5 Queue using Event Graph formalism (Schruben 1983)
+// Algebraic specification: S = (F, C, T, Γ, G)
+// Generated: 2026-01-05 19:00:08
+// Formalism: Event Graph (Schruben 1983)
+// Algorithm: Next-Event Time-Advance (Law 2013)
+
+// =============================================================================
+// IMPORT LIBRARIES
+// =============================================================================
+
+import Random as rnd
+import Stdlib as lib
+
+// =============================================================================
+// DOMAIN DECLARATIONS
+// =============================================================================
+
+// Base object domain
+domain Object
+
+// Event domain hierarchy - G = (V(G), E_s(G), E_c(G))
+domain Event <: Object
+domain ArriveEvent <: Event
+domain AttemptToStartEvent <: Event
+domain StartEvent <: Event
+domain FinishEvent <: Event
+
+// =============================================================================
+// CONSTANT DECLARATIONS
+// =============================================================================
+
+const k: Nat  // Number of servers (capacity)
+const iat_mean: Real  // Inter-arrival time mean (1/λ)
+const ist_mean: Real  // Service time mean (1/μ)
+const sim_end_time: Real  // Simulation end time
+
+// =============================================================================
+// DYNAMIC VARIABLE DECLARATIONS - STATES space
+// =============================================================================
+
+// Simulation clock and event list
+var sim_clocktime: Real
+var future_event_list: List<Event>
+var current_event: Event
+
+// State variables (STATES)
+var q: Nat  // Queue length (customers waiting)
+var p: Nat  // Available servers (idle)
+
+// =============================================================================
+// RANDOM STREAM VARIABLES - Edge delay functions T
+// =============================================================================
+
+var T_a: rnd.exponential(iat_mean) as "arrivals"
+var T_s: rnd.exponential(ist_mean) as "service"
+
+// =============================================================================
+// DYNAMIC FUNCTION DECLARATIONS
+// =============================================================================
+
+// Event properties
+dynamic function event_rule(e: Event): Rule
+dynamic function event_scheduled_time(e: Event): Real
+dynamic function event_parameters(e: Event): List<Any>
+
+// =============================================================================
+// DERIVED FUNCTIONS - Observables
+// =============================================================================
+
+derived function queue_length(): Nat =  // Number in queue
+    q
+
+derived function servers_busy(): Nat =  // Number of busy servers
+    k - p
+
+derived function in_system(): Nat =  // Total customers in system
+    q + (k - p)
+
+// =============================================================================
+// EVENT RULES - State transition functions F
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Arrive Event - f_Arrive
+// -----------------------------------------------------------------------------
+// Customer arrival - increment queue
+
+rule event_arrive() =
+    // State transition: q := q + 1
+    q := q + 1
+
+    // Process scheduling edges E_s(G)
+    // Self-loop: schedule next arrival
+    let scheduled_arrive = new ArriveEvent
+    event_rule(scheduled_arrive) := "event_arrive"
+    event_scheduled_time(scheduled_arrive) := sim_clocktime + T_a
+    event_parameters(scheduled_arrive) := []
+    lib.add(future_event_list, scheduled_arrive)
+
+    // Always attempt to start after arrival
+    let scheduled_attempt_to_start = new AttemptToStartEvent
+    event_rule(scheduled_attempt_to_start) := "event_attempt_to_start"
+    event_scheduled_time(scheduled_attempt_to_start) := sim_clocktime
+    event_parameters(scheduled_attempt_to_start) := []
+    lib.add(future_event_list, scheduled_attempt_to_start)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptToStart Event - f_AttemptToStart
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start service (no state change)
+
+rule event_attempt_to_start() =
+    // Process scheduling edges E_s(G)
+    // Start only if server available AND customer waiting
+    if p > 0 and q > 0 then
+        let scheduled_start = new StartEvent
+        event_rule(scheduled_start) := "event_start"
+        event_scheduled_time(scheduled_start) := sim_clocktime
+        event_parameters(scheduled_start) := []
+        lib.add(future_event_list, scheduled_start)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start Event - f_Start
+// -----------------------------------------------------------------------------
+// Service start - decrement queue and available servers
+
+rule event_start() =
+    // State transition: q := q - 1; p := p - 1
+    q := q - 1
+    p := p - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish = new FinishEvent
+    event_rule(scheduled_finish) := "event_finish"
+    event_scheduled_time(scheduled_finish) := sim_clocktime + T_s
+    event_parameters(scheduled_finish) := []
+    lib.add(future_event_list, scheduled_finish)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish Event - f_Finish
+// -----------------------------------------------------------------------------
+// Service completion - release server
+
+rule event_finish() =
+    // State transition: p := p + 1
+    p := p + 1
+
+    // Process scheduling edges E_s(G)
+    // If queue not empty, attempt to start next customer
+    if q > 0 then
+        let scheduled_attempt_to_start = new AttemptToStartEvent
+        event_rule(scheduled_attempt_to_start) := "event_attempt_to_start"
+        event_scheduled_time(scheduled_attempt_to_start) := sim_clocktime
+        event_parameters(scheduled_attempt_to_start) := []
+        lib.add(future_event_list, scheduled_attempt_to_start)
+    endif
+
+endrule
+
+// =============================================================================
+// NEXT-EVENT TIME-ADVANCE ALGORITHM
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Initialization Routine
+// -----------------------------------------------------------------------------
+// Set STATE := STATE_0, FEL := FEL_0
+
+rule initialisation_routine() =
+    // Schedule initial Arrive event
+    let init_event_0 = new ArriveEvent
+    event_rule(init_event_0) := "event_arrive"
+    event_scheduled_time(init_event_0) := sim_clocktime + T_a
+    event_parameters(init_event_0) := []
+    lib.add(future_event_list, init_event_0)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Timing Routine
+// -----------------------------------------------------------------------------
+// Pop earliest event from FEL, advance clock to event time
+
+rule timing_routine() =
+    // Sort FEL by (scheduled_time, -priority)
+    lib.sort(future_event_list, "event_scheduled_time")
+
+    if lib.length(future_event_list) > 0 then
+        // Remove next event from FEL
+        let next_event = lib.pop(future_event_list)
+
+        // Advance simulation clock
+        sim_clocktime := event_scheduled_time(next_event)
+
+        // Store for event routine dispatch
+        current_event := next_event
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// Event Routine
+// -----------------------------------------------------------------------------
+// Dispatch to event-specific rule using lib.apply_rule
+
+rule event_routine() =
+    let r = event_rule(current_event)
+    let params = event_parameters(current_event)
+    lib.apply_rule(r, params)
+endrule
+
+// =============================================================================
+// INITIAL STATE - STATE_0
+// =============================================================================
+
+init:
+    // Parameters
+    k := 5
+    iat_mean := 1.25
+    ist_mean := 1.0
+    sim_end_time := 1000.0
+
+    // Simulation state
+    sim_clocktime := 0.0
+    future_event_list := []
+
+    // Initial state variables STATE_0
+    q := 0
+    p := 5
+endinit
+
+// =============================================================================
+// MAIN RULE
+// =============================================================================
+
+main rule main =
+    // Initialize on first step
+    if sim_clocktime == 0.0 and lib.length(future_event_list) == 0 then
+        initialisation_routine()
+    endif
+
+    // Run while FEL not empty and time not exceeded
+    if lib.length(future_event_list) > 0 and sim_clocktime < sim_end_time then
+        timing_routine()
+        event_routine()
+    endif
+endrule
+

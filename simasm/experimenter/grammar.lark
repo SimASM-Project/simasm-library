@@ -1,0 +1,177 @@
+// SimASM Experiment and Verification Grammar v1.0
+// Lark grammar for experiment and verification specification DSL
+
+// ============================================================================
+// Program Structure
+// ============================================================================
+
+// Complete specification file (either experiment or verification)
+?start: experiment_file
+      | verification_file
+
+// Complete experiment file
+experiment_file: experiment_decl
+
+// Complete verification file
+verification_file: verification_decl
+
+// Experiment declaration
+experiment_decl: "experiment" IDENTIFIER ":" experiment_body "endexperiment"
+
+// Verification declaration
+verification_decl: "verification" IDENTIFIER ":" verification_body "endverification"
+
+// Experiment body contains model, replication, statistics, output
+experiment_body: model_decl replication_block statistics_block? output_block?
+
+// Verification body contains models, seed, labels, observables, check, output
+verification_body: models_block seed_decl? labels_block? observables_block? check_block? verify_output_block?
+
+// ============================================================================
+// Model Declaration (Experiment)
+// ============================================================================
+
+// Model path: model := "path/to/model.simasm"
+model_decl: "model" ":=" STRING
+
+// ============================================================================
+// Replication Block (Experiment)
+// ============================================================================
+
+replication_block: "replication" ":" replication_settings "endreplication"
+
+replication_settings: replication_setting+
+
+replication_setting: "count" ":" INTEGER -> rep_count
+                   | "warm_up_time" ":" NUMBER -> rep_warmup
+                   | "run_length" ":" NUMBER -> rep_length
+                   | "seed_strategy" ":" STRING -> rep_strategy
+                   | "base_seed" ":" INTEGER -> rep_base_seed
+                   | "seeds" ":" seed_list -> rep_explicit_seeds
+                   | "generate_plots" ":" BOOL -> rep_generate_plots
+                   | "trace_interval" ":" NUMBER -> rep_trace_interval
+
+seed_list: "[" INTEGER ("," INTEGER)* "]"
+
+// ============================================================================
+// Statistics Block (Experiment)
+// ============================================================================
+
+statistics_block: "statistics" ":" statistic_decl+ "endstatistics"
+
+statistic_decl: "stat" IDENTIFIER ":" IDENTIFIER stat_body "endstat"
+
+stat_body: stat_setting+
+
+stat_setting: "expression" ":" STRING -> stat_expr
+            | "domain" ":" IDENTIFIER -> stat_domain
+            | "condition" ":" STRING -> stat_condition
+            | "interval" ":" NUMBER -> stat_interval
+            | "aggregation" ":" IDENTIFIER -> stat_aggregation
+            | "start_expr" ":" STRING -> stat_start_expr
+            | "end_expr" ":" STRING -> stat_end_expr
+            | "entity_domain" ":" IDENTIFIER -> stat_entity_domain
+            | "trace" ":" BOOL -> stat_trace
+
+// ============================================================================
+// Output Block (Experiment)
+// ============================================================================
+
+output_block: "output" ":" output_settings "endoutput"
+
+output_settings: output_setting+
+
+output_setting: "format" ":" STRING -> out_format
+              | "file_path" ":" STRING -> out_path
+
+// ============================================================================
+// Models Block (Verification)
+// ============================================================================
+
+models_block: "models" ":" model_import+ "endmodels"
+
+model_import: "import" IDENTIFIER "from" STRING -> model_import_decl
+
+// ============================================================================
+// Seed Declaration (Verification)
+// ============================================================================
+
+// Single seed, explicit list, or range for multi-seed verification
+seed_decl: "seed" ":" INTEGER -> single_seed
+         | "seeds" ":" seed_list -> multi_seed
+         | "seed_range" ":" INTEGER "to" INTEGER -> seed_range
+
+// ============================================================================
+// Labels Block (Verification)
+// ============================================================================
+
+labels_block: "labels" ":" label_decl+ "endlabels"
+
+label_decl: "label" IDENTIFIER "for" IDENTIFIER ":" STRING -> label_def
+
+// ============================================================================
+// Observables Block (Verification)
+// ============================================================================
+
+observables_block: "observables" ":" observable_decl+ "endobservables"
+
+observable_decl: "observable" IDENTIFIER ":" observable_mappings "endobservable"
+
+observable_mappings: observable_mapping+
+
+observable_mapping: IDENTIFIER "->" IDENTIFIER
+
+// ============================================================================
+// Check Block (Verification)
+// ============================================================================
+
+check_block: "check" ":" check_settings "endcheck"
+
+check_settings: check_setting+
+
+check_setting: "type" ":" IDENTIFIER -> check_type
+             | "run_length" ":" NUMBER -> check_run_length
+             | "timeout" ":" NUMBER -> check_timeout
+             | "skip_init_steps" ":" INTEGER -> check_skip_init
+             | "k_max" ":" INTEGER -> check_k_max
+
+// ============================================================================
+// Verification Output Block
+// ============================================================================
+
+verify_output_block: "output" ":" verify_output_settings "endoutput"
+
+verify_output_settings: verify_output_setting+
+
+verify_output_setting: "format" ":" STRING -> verify_out_format
+                     | "file_path" ":" STRING -> verify_out_path
+                     | "include_counterexample" ":" BOOL -> verify_out_counterexample
+                     | "generate_plots" ":" BOOL -> verify_out_generate_plots
+
+// ============================================================================
+// Terminals
+// ============================================================================
+
+// Identifiers
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+// Numbers
+NUMBER: FLOAT | INTEGER
+FLOAT: /[0-9]+\.[0-9]*/ | /\.[0-9]+/
+INTEGER: /[0-9]+/
+
+// Strings (double-quoted)
+STRING: /"[^"]*"/
+
+// Booleans
+BOOL: "true" | "false"
+
+// Comments (ignored)
+COMMENT: /\/\/[^\n]*/
+BLOCK_COMMENT: /\/\*(.|\n)*?\*\//
+
+// Whitespace (ignored)
+%ignore /[\t \f]+/
+%ignore COMMENT
+%ignore BLOCK_COMMENT
+%ignore /\r?\n/

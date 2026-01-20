@@ -1,0 +1,281 @@
+{
+  "experiment": "LittlesLawMM5",
+  "metadata": {
+    "num_replications": 10,
+    "total_wall_time": 9.916,
+    "generated_at": "2026-01-05T20:40:30.431848"
+  },
+  "replications": [
+    {
+      "id": 1,
+      "seed": 12345,
+      "final_time": 1000.4893,
+      "steps_taken": 3239,
+      "statistics": {
+        "L_system": 0.7578,
+        "L_queue": 0.0,
+        "L_service": 0.7578,
+        "W_system": 0.9606,
+        "W_queue": 0.0,
+        "total_arrivals": 811.0,
+        "total_departures": 808.0,
+        "rho_utilization": 0.534,
+        "avg_servers_busy": 0.7578
+      }
+    },
+    {
+      "id": 2,
+      "seed": 12346,
+      "final_time": 1000.1738,
+      "steps_taken": 3120,
+      "statistics": {
+        "L_system": 0.7951,
+        "L_queue": 0.0,
+        "L_service": 0.7951,
+        "W_system": 1.0058,
+        "W_queue": 0.0003,
+        "total_arrivals": 781.0,
+        "total_departures": 779.0,
+        "rho_utilization": 0.5715,
+        "avg_servers_busy": 0.7951
+      }
+    },
+    {
+      "id": 3,
+      "seed": 12347,
+      "final_time": 1000.395,
+      "steps_taken": 3112,
+      "statistics": {
+        "L_system": 0.8088,
+        "L_queue": 0.0008,
+        "L_service": 0.808,
+        "W_system": 1.0609,
+        "W_queue": 0.0009,
+        "total_arrivals": 778.0,
+        "total_departures": 778.0,
+        "rho_utilization": 0.5419,
+        "avg_servers_busy": 0.808
+      }
+    },
+    {
+      "id": 4,
+      "seed": 12348,
+      "final_time": 1001.0847,
+      "steps_taken": 3089,
+      "statistics": {
+        "L_system": 0.7751,
+        "L_queue": 0.0,
+        "L_service": 0.7751,
+        "W_system": 1.0155,
+        "W_queue": 0.0006,
+        "total_arrivals": 773.0,
+        "total_departures": 772.0,
+        "rho_utilization": 0.5447,
+        "avg_servers_busy": 0.7751
+      }
+    },
+    {
+      "id": 5,
+      "seed": 12349,
+      "final_time": 1000.2815,
+      "steps_taken": 3305,
+      "statistics": {
+        "L_system": 0.8836,
+        "L_queue": 0.0,
+        "L_service": 0.8836,
+        "W_system": 1.0432,
+        "W_queue": 0.0,
+        "total_arrivals": 827.0,
+        "total_departures": 826.0,
+        "rho_utilization": 0.5832,
+        "avg_servers_busy": 0.8836
+      }
+    },
+    {
+      "id": 6,
+      "seed": 12350,
+      "final_time": 1001.8407,
+      "steps_taken": 3225,
+      "statistics": {
+        "L_system": 0.804,
+        "L_queue": 0.0,
+        "L_service": 0.804,
+        "W_system": 0.9979,
+        "W_queue": 0.0,
+        "total_arrivals": 807.0,
+        "total_departures": 806.0,
+        "rho_utilization": 0.554,
+        "avg_servers_busy": 0.804
+      }
+    },
+    {
+      "id": 7,
+      "seed": 12351,
+      "final_time": 1000.1736,
+      "steps_taken": 3184,
+      "statistics": {
+        "L_system": 0.8364,
+        "L_queue": 0.0017,
+        "L_service": 0.8346,
+        "W_system": 1.0609,
+        "W_queue": 0.0019,
+        "total_arrivals": 796.0,
+        "total_departures": 796.0,
+        "rho_utilization": 0.5541,
+        "avg_servers_busy": 0.8346
+      }
+    },
+    {
+      "id": 8,
+      "seed": 12352,
+      "final_time": 1003.6485,
+      "steps_taken": 3209,
+      "statistics": {
+        "L_system": 0.8652,
+        "L_queue": 0.0,
+        "L_service": 0.8652,
+        "W_system": 1.0448,
+        "W_queue": 0.0,
+        "total_arrivals": 803.0,
+        "total_departures": 802.0,
+        "rho_utilization": 0.5785,
+        "avg_servers_busy": 0.8652
+      }
+    },
+    {
+      "id": 9,
+      "seed": 12353,
+      "final_time": 1000.7199,
+      "steps_taken": 3061,
+      "statistics": {
+        "L_system": 0.7334,
+        "L_queue": 0.0,
+        "L_service": 0.7334,
+        "W_system": 0.9852,
+        "W_queue": 0.0,
+        "total_arrivals": 766.0,
+        "total_departures": 765.0,
+        "rho_utilization": 0.5246,
+        "avg_servers_busy": 0.7334
+      }
+    },
+    {
+      "id": 10,
+      "seed": 12354,
+      "final_time": 1000.3514,
+      "steps_taken": 3344,
+      "statistics": {
+        "L_system": 0.8125,
+        "L_queue": 0.0003,
+        "L_service": 0.8122,
+        "W_system": 0.9621,
+        "W_queue": 0.0003,
+        "total_arrivals": 836.0,
+        "total_departures": 836.0,
+        "rho_utilization": 0.5485,
+        "avg_servers_busy": 0.8122
+      }
+    }
+  ],
+  "summary": {
+    "L_system": {
+      "mean": 0.8072,
+      "std_dev": 0.0461,
+      "min": 0.7334,
+      "max": 0.8836,
+      "ci_95": [
+        0.7742,
+        0.8402
+      ],
+      "n": 10
+    },
+    "L_queue": {
+      "mean": 0.0003,
+      "std_dev": 0.0006,
+      "min": 0.0,
+      "max": 0.0017,
+      "ci_95": [
+        -0.0001,
+        0.0007
+      ],
+      "n": 10
+    },
+    "L_service": {
+      "mean": 0.8069,
+      "std_dev": 0.046,
+      "min": 0.7334,
+      "max": 0.8836,
+      "ci_95": [
+        0.774,
+        0.8398
+      ],
+      "n": 10
+    },
+    "W_system": {
+      "mean": 1.0137,
+      "std_dev": 0.0379,
+      "min": 0.9606,
+      "max": 1.0609,
+      "ci_95": [
+        0.9866,
+        1.0408
+      ],
+      "n": 10
+    },
+    "W_queue": {
+      "mean": 0.0004,
+      "std_dev": 0.0006,
+      "min": 0.0,
+      "max": 0.0019,
+      "ci_95": [
+        -0.0,
+        0.0009
+      ],
+      "n": 10
+    },
+    "total_arrivals": {
+      "mean": 797.8,
+      "std_dev": 23.3371,
+      "min": 766.0,
+      "max": 836.0,
+      "ci_95": [
+        781.1068,
+        814.4932
+      ],
+      "n": 10
+    },
+    "total_departures": {
+      "mean": 796.8,
+      "std_dev": 23.3895,
+      "min": 765.0,
+      "max": 836.0,
+      "ci_95": [
+        780.0694,
+        813.5306
+      ],
+      "n": 10
+    },
+    "rho_utilization": {
+      "mean": 0.5535,
+      "std_dev": 0.0191,
+      "min": 0.5246,
+      "max": 0.5832,
+      "ci_95": [
+        0.5398,
+        0.5671
+      ],
+      "n": 10
+    },
+    "avg_servers_busy": {
+      "mean": 0.8069,
+      "std_dev": 0.046,
+      "min": 0.7334,
+      "max": 0.8836,
+      "ci_95": [
+        0.774,
+        0.8398
+      ],
+      "n": 10
+    }
+  }
+}
