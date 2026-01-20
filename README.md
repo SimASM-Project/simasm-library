@@ -181,6 +181,44 @@ verification EG_ACD_Equivalence:
 endverification
 ```
 
+## Related Work and ASM Frameworks
+
+SimASM builds on the foundation of Abstract State Machines (ASM) introduced by
+Gurevich [1, 2]. Several ASM implementations and tools have been developed:
+
+- **ASM Workbench** [3]: Early implementation providing executable ASM specifications
+- **ASMETA** [4]: ASM metamodel and toolset for interoperability
+- **CoreASM** [5]: Extensible ASM execution engine with microkernel architecture
+
+SimASM applies ASM to discrete-event simulation, following Wagner's foundational
+work on ASM-based DES semantics [6]. The stutter equivalence verification is based
+on techniques from model checking [7].
+
+### References
+
+1. Gurevich, Y. (1993). Evolving Algebras: An Attempt to Discover Semantics.
+   *Bulletin of the EATCS*, 43, 264-284.
+
+2. Gurevich, Y. (2000). Sequential Abstract State Machines Capture Sequential
+   Algorithms. *ACM Transactions on Computational Logic*, 1(1), 77-111.
+
+3. Del Castillo, G. (1999). *The ASM Workbench: A Tool Environment for
+   Computer-Aided Analysis and Validation of ASM Models*. PhD thesis, University
+   of Paderborn.
+
+4. Gargantini, A., Riccobene, E., & Scandurra, P. (2008). A Metamodel-based
+   Language and a Simulation Engine for Abstract State Machines. *Journal of
+   Universal Computer Science*, 14(12), 1949-1983.
+
+5. Farahbod, R., Gervasi, V., & Glässer, U. (2009). Design and Specification of
+   CoreASM: An Extensible ASM Execution Engine. *Fundamenta Informaticae*,
+   95(1), 17-54.
+
+6. Wagner, G. (2017). Information and Process Modeling for Simulation.
+   In *Enterprise Modeling and Information Systems Architectures*.
+
+7. Baier, C., & Katoen, J.-P. (2008). *Principles of Model Checking*. MIT Press.
+
 ## License
 
 MIT License - See LICENSE file
