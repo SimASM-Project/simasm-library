@@ -190,9 +190,8 @@ Gurevich [1, 2]. Several ASM implementations and tools have been developed:
 - **ASMETA** [4]: ASM metamodel and toolset for interoperability
 - **CoreASM** [5]: Extensible ASM execution engine with microkernel architecture
 
-SimASM applies ASM to discrete-event simulation, following Wagner's foundational
-work on ASM-based DES semantics [6]. The stutter equivalence verification is based
-on techniques from model checking [7].
+SimASM adapts from these earlier ASM implementations and applies ASM to discrete-event simulation, following Wagner's foundational work on ASM-based DES semantics [6]. 
+The stutter equivalence verification is based on techniques from model checking [7].
 
 ### References
 
