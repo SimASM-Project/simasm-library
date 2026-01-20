@@ -212,10 +212,10 @@ on techniques from model checking [7].
 
 5. Farahbod, R., Gervasi, V., & Glässer, U. (2009). Design and Specification of
    CoreASM: An Extensible ASM Execution Engine. *Fundamenta Informaticae*,
-   95(1), 17-54.
+   77, 71-103.
 
-6. Wagner, G. (2017). Information and Process Modeling for Simulation.
-   In *Enterprise Modeling and Information Systems Architectures*.
+6. Wagner, G. (2017). An abstract state machine semantics for discrete event simulation.
+   2017 Winter Simulation Conference (WSC), 762–773.
 
 7. Baier, C., & Katoen, J.-P. (2008). *Principles of Model Checking*. MIT Press.
 
