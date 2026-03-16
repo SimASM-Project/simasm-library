@@ -1,13 +1,15 @@
 """
 SimASM experimenter module.
 
-Provides experiment and verification specification parsing and execution.
+Provides experiment, verification, analysis, and complexity specification parsing and execution.
 
 Parsing API:
 - ExperimentParser: Parse experiment specifications
 - VerificationParser: Parse verification specifications
-- SpecificationParser: Auto-detect and parse either type
-- AST nodes: ExperimentNode, VerificationNode, etc.
+- AnalysisParser: Parse complexity analysis specifications (with runtime/regression)
+- ComplexityParser: Parse complexity metric specifications (metrics only)
+- SpecificationParser: Auto-detect and parse any type
+- AST nodes: ExperimentNode, VerificationNode, AnalysisNode, ComplexityNode, etc.
 
 Experiment Execution API:
 - ExperimenterEngine: Execute experiment specifications
@@ -18,16 +20,35 @@ Verification Execution API:
 - VerificationEngine: Execute verification specifications
 - run_verification: Convenience function
 
+Analysis Execution API:
+- AnalysisEngine: Execute complexity analysis specifications (with runtime/regression)
+- run_analysis: Convenience function
+
+Complexity Execution API:
+- ComplexityEngine: Execute complexity metric specifications
+- run_complexity: Convenience function
+
 Usage:
     # Run experiment from file
     from simasm.experimenter import run_experiment
     result = run_experiment("experiments/mmn.simasm")
-    
+
     # Run verification from file
     from simasm.experimenter import run_verification
     result = run_verification("verify/eg_vs_acd.simasm")
     if result.is_equivalent:
         print("Models are stutter equivalent!")
+
+    # Run complexity analysis from file
+    from simasm.experimenter import run_analysis
+    result = run_analysis("analysis/tandem_complexity.simasm")
+    print(f"R² = {result.r_squared:.3f}")
+
+    # Run complexity metrics from file
+    from simasm.experimenter import run_complexity
+    result = run_complexity("specs/benchmark_complexity.simasm")
+    for model in result.models:
+        print(f"{model['name']}: HET={model['het_static']}")
 """
 
 from simasm.experimenter.ast import (
@@ -43,10 +64,24 @@ from simasm.experimenter.ast import (
     VerificationCheckNode,
     VerificationOutputNode,
     VerificationNode,
+    # Analysis AST
+    AnalysisModelNode,
+    AnalysisMetricsNode,
+    AnalysisRuntimeNode,
+    AnalysisRegressionNode,
+    AnalysisOutputNode,
+    AnalysisNode,
+    # Complexity AST
+    ComplexityModelNode,
+    ComplexityMetricsNode,
+    ComplexityOutputNode,
+    ComplexityNode,
 )
 from simasm.experimenter.transformer import (
     ExperimentParser,
     VerificationParser,
+    AnalysisParser,
+    ComplexityParser,
     SpecificationParser,
     ExperimentTransformer,
 )
@@ -60,6 +95,16 @@ from simasm.experimenter.engine import (
     VerificationEngine,
     run_verification,
     run_verification_from_node,
+    # Analysis
+    AnalysisEngine,
+    AnalysisResult,
+    run_analysis,
+    run_analysis_from_node,
+    # Complexity
+    ComplexityEngine,
+    ComplexityResult,
+    run_complexity,
+    run_complexity_from_node,
 )
 
 __all__ = [
@@ -75,9 +120,23 @@ __all__ = [
     'VerificationCheckNode',
     'VerificationOutputNode',
     'VerificationNode',
+    # Analysis AST nodes
+    'AnalysisModelNode',
+    'AnalysisMetricsNode',
+    'AnalysisRuntimeNode',
+    'AnalysisRegressionNode',
+    'AnalysisOutputNode',
+    'AnalysisNode',
+    # Complexity AST nodes
+    'ComplexityModelNode',
+    'ComplexityMetricsNode',
+    'ComplexityOutputNode',
+    'ComplexityNode',
     # Parsers
     'ExperimentParser',
     'VerificationParser',
+    'AnalysisParser',
+    'ComplexityParser',
     'SpecificationParser',
     'ExperimentTransformer',
     # Experiment Engine
@@ -89,4 +148,14 @@ __all__ = [
     'VerificationEngine',
     'run_verification',
     'run_verification_from_node',
+    # Analysis Engine
+    'AnalysisEngine',
+    'AnalysisResult',
+    'run_analysis',
+    'run_analysis_from_node',
+    # Complexity Engine
+    'ComplexityEngine',
+    'ComplexityResult',
+    'run_complexity',
+    'run_complexity_from_node',
 ]

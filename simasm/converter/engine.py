@@ -119,6 +119,13 @@ class ConvertEngine:
             spec = ACDSpec.from_dict(json_data)
             return convert_acd(spec)
 
+        elif formalism == FormalismType.DEVS:
+            from simasm.converter.devs.schema import DEVSSpec
+            from simasm.converter.devs.converter import convert_devs
+
+            spec = DEVSSpec.from_dict(json_data)
+            return convert_devs(spec)
+
         else:
             raise ValueError(f"Unsupported formalism: {formalism}")
 

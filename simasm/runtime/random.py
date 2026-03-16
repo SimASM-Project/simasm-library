@@ -92,6 +92,23 @@ class RandomStream:
     # Continuous Distributions
     # =========================================================================
     
+    def constant(self, value: float) -> float:
+        """
+        Constant (degenerate) distribution - always returns the same value.
+
+        Useful for zero-duration activities in ACD models.
+
+        Args:
+            value: The constant value to return
+
+        Returns:
+            The constant value
+
+        Example:
+            rnd.constant(0)  # Always returns 0 (zero-duration activity)
+        """
+        return value
+
     def uniform(self, a: float, b: float) -> float:
         """
         Uniform distribution on [a, b].

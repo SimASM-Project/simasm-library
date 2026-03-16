@@ -5,9 +5,11 @@
 // Program Structure
 // ============================================================================
 
-// Complete specification file (either experiment or verification)
+// Complete specification file (experiment, verification, or analysis)
 ?start: experiment_file
       | verification_file
+      | analysis_file
+      | complexity_file
 
 // Complete experiment file
 experiment_file: experiment_decl
@@ -15,17 +17,29 @@ experiment_file: experiment_decl
 // Complete verification file
 verification_file: verification_decl
 
+// Complete analysis file
+analysis_file: analysis_decl
+
+// Complete complexity analysis file
+complexity_file: complexity_decl
+
 // Experiment declaration
 experiment_decl: "experiment" IDENTIFIER ":" experiment_body "endexperiment"
 
 // Verification declaration
 verification_decl: "verification" IDENTIFIER ":" verification_body "endverification"
 
+// Complexity analysis declaration
+complexity_decl: "complexity" IDENTIFIER ":" complexity_body "endcomplexity"
+
 // Experiment body contains model, replication, statistics, output
 experiment_body: model_decl replication_block statistics_block? output_block?
 
-// Verification body contains models, seed, labels, observables, check, output
-verification_body: models_block seed_decl? labels_block? observables_block? check_block? verify_output_block?
+// Verification body contains models, seed, timeseries, labels, observables, check, output
+verification_body: models_block seed_decl? timeseries_block? labels_block? observables_block? check_block? verify_output_block?
+
+// Complexity body contains models, metrics selection, and output configuration
+complexity_body: complexity_models_block complexity_metrics_block? complexity_output_block?
 
 // ============================================================================
 // Model Declaration (Experiment)
@@ -122,6 +136,14 @@ observable_mappings: observable_mapping+
 observable_mapping: IDENTIFIER "->" IDENTIFIER
 
 // ============================================================================
+// Timeseries Block (Verification)
+// ============================================================================
+
+timeseries_block: "timeseries" ":" timeseries_decl+ "endtimeseries"
+
+timeseries_decl: "observe" IDENTIFIER "for" IDENTIFIER ":" STRING -> timeseries_observe
+
+// ============================================================================
 // Check Block (Verification)
 // ============================================================================
 
@@ -147,6 +169,125 @@ verify_output_setting: "format" ":" STRING -> verify_out_format
                      | "file_path" ":" STRING -> verify_out_path
                      | "include_counterexample" ":" BOOL -> verify_out_counterexample
                      | "generate_plots" ":" BOOL -> verify_out_generate_plots
+                     | "timeseries_plots" ":" timeseries_plot_settings "endtimeseries_plots" -> verify_out_timeseries
+
+timeseries_plot_settings: timeseries_plot_setting+
+
+timeseries_plot_setting: "layout" ":" timeseries_layout -> ts_plot_layout
+                       | "observable" ":" IDENTIFIER -> ts_plot_observable
+                       | "y_label" ":" STRING -> ts_plot_y_label
+                       | "y_min" ":" NUMBER -> ts_plot_y_min
+                       | "y_max" ":" NUMBER -> ts_plot_y_max
+                       | "show_raw" ":" BOOL -> ts_plot_show_raw
+                       | "show_no_stutter" ":" BOOL -> ts_plot_show_no_stutter
+                       | "output_file" ":" STRING -> ts_plot_output_file
+
+timeseries_layout: "[" INTEGER "," INTEGER "]"
+
+// ============================================================================
+// Analysis Declaration
+// ============================================================================
+
+// Analysis declaration
+analysis_decl: "analysis" IDENTIFIER ":" analysis_body "endanalysis"
+
+// Analysis body contains models, metrics, runtime, regression, output
+analysis_body: analysis_models_block analysis_metrics_block? analysis_runtime_block? analysis_regression_block? analysis_output_block?
+
+// ============================================================================
+// Analysis: Models Block
+// ============================================================================
+
+analysis_models_block: "models" ":" analysis_model_decl+ "endmodels"
+
+analysis_model_decl: "import" IDENTIFIER "from" STRING -> analysis_model_import
+
+// ============================================================================
+// Analysis: Metrics Block
+// ============================================================================
+
+analysis_metrics_block: "metrics" ":" analysis_metric_setting+ "endmetrics"
+
+analysis_metric_setting: "type" ":" IDENTIFIER -> analysis_metric_type
+                       | "features" ":" analysis_feature_list -> analysis_metric_features
+
+analysis_feature_list: "[" IDENTIFIER ("," IDENTIFIER)* "]"
+
+// ============================================================================
+// Analysis: Runtime Block
+// ============================================================================
+
+analysis_runtime_block: "runtime" ":" analysis_runtime_setting+ "endruntime"
+
+analysis_runtime_setting: "end_time" ":" NUMBER -> analysis_rt_end_time
+                        | "seeds" ":" seed_list -> analysis_rt_seeds
+                        | "seed" ":" INTEGER -> analysis_rt_single_seed
+                        | "seed_range" ":" INTEGER "to" INTEGER -> analysis_rt_seed_range
+                        | "time_var" ":" STRING -> analysis_rt_time_var
+
+// ============================================================================
+// Analysis: Regression Block
+// ============================================================================
+
+analysis_regression_block: "regression" ":" analysis_regression_setting+ "endregression"
+
+analysis_regression_setting: "target" ":" IDENTIFIER -> analysis_reg_target
+                           | "predictors" ":" analysis_feature_list -> analysis_reg_predictors
+                           | "method" ":" IDENTIFIER -> analysis_reg_method
+
+// ============================================================================
+// Analysis: Output Block
+// ============================================================================
+
+analysis_output_block: "output" ":" analysis_output_setting+ "endoutput"
+
+analysis_output_setting: "format" ":" STRING -> analysis_out_format
+                       | "file_path" ":" STRING -> analysis_out_path
+                       | "generate_plots" ":" BOOL -> analysis_out_generate_plots
+
+// ============================================================================
+// Complexity Analysis: Models Block
+// ============================================================================
+
+complexity_models_block: "models" ":" (complexity_model_decl | complexity_model_dir)+ "endmodels"
+
+complexity_model_decl: "model" IDENTIFIER ":" complexity_model_paths "endmodel"
+
+complexity_model_paths: complexity_model_path+
+
+complexity_model_path: "simasm" ":" STRING -> complexity_simasm_path
+                     | "event_graph" ":" STRING -> complexity_event_graph_path
+                     | "json_spec" ":" STRING -> complexity_json_spec_path
+
+complexity_model_dir: "simasm_dir" ":" STRING -> complexity_simasm_dir
+                    | "json_dir" ":" STRING -> complexity_json_dir
+
+// ============================================================================
+// Complexity Analysis: Metrics Block
+// ============================================================================
+
+complexity_metrics_block: "metrics" ":" complexity_metric_setting+ "endmetrics"
+
+complexity_metric_setting: "het_static" ":" BOOL -> complexity_het_static
+                         | "het_path_based" ":" BOOL -> complexity_het_path_based
+                         | "max_cycle_traversals" ":" INTEGER -> complexity_max_cycles
+                         | "structural" ":" BOOL -> complexity_structural
+                         | "component_breakdown" ":" BOOL -> complexity_component_breakdown
+                         | "smc" ":" BOOL -> complexity_smc
+                         | "cc" ":" BOOL -> complexity_cc
+                         | "loc" ":" BOOL -> complexity_loc
+                         | "kc" ":" BOOL -> complexity_kc
+
+// ============================================================================
+// Complexity Analysis: Output Block
+// ============================================================================
+
+complexity_output_block: "output" ":" complexity_output_setting+ "endoutput"
+
+complexity_output_setting: "format" ":" STRING -> complexity_out_format
+                         | "file_path" ":" STRING -> complexity_out_path
+                         | "generate_summary" ":" BOOL -> complexity_out_summary
+                         | "include_paths" ":" BOOL -> complexity_out_include_paths
 
 // ============================================================================
 // Terminals

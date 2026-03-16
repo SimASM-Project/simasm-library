@@ -211,20 +211,33 @@ class SimASMTransformer(Transformer):
         return LibCallTerm(func_name, tuple(args))
     
     def rnd_call_default(self, items: List) -> RndCallTerm:
-        """Random call with default stream: rnd.func(args)"""
-        func_name = items[0]
-        if len(items) > 1 and items[1] is not None:
-            args = items[1]
-        else:
-            args = ()
-        return RndCallTerm(func_name, tuple(args), stream=None)
-    
-    def rnd_call_stream(self, items: List) -> RndCallTerm:
-        """Random call with named stream: rnd.stream.func(args)"""
-        stream_name = items[0]
+        """Random call with default stream: rnd.func(args)
+
+        Grammar: RND "." IDENTIFIER "(" arg_list? ")"
+        items[0] = RND token (skipped)
+        items[1] = function name (IDENTIFIER)
+        items[2] = arguments (from arg_list, if present)
+        """
         func_name = items[1]
         if len(items) > 2 and items[2] is not None:
             args = items[2]
+        else:
+            args = ()
+        return RndCallTerm(func_name, tuple(args), stream=None)
+
+    def rnd_call_stream(self, items: List) -> RndCallTerm:
+        """Random call with named stream: rnd.stream.func(args)
+
+        Grammar: RND "." IDENTIFIER "." IDENTIFIER "(" arg_list? ")"
+        items[0] = RND token (skipped)
+        items[1] = stream name (IDENTIFIER)
+        items[2] = function name (IDENTIFIER)
+        items[3] = arguments (from arg_list, if present)
+        """
+        stream_name = items[1]
+        func_name = items[2]
+        if len(items) > 3 and items[3] is not None:
+            args = items[3]
         else:
             args = ()
         return RndCallTerm(func_name, tuple(args), stream=stream_name)
@@ -363,20 +376,33 @@ class SimASMTransformer(Transformer):
         return LibCallStatement(func_name, tuple(args))
     
     def rnd_stmt_default(self, items: List) -> RndCallStatement:
-        """Random call statement with default stream: rnd.func(args)"""
-        func_name = items[0]
-        if len(items) > 1 and items[1] is not None:
-            args = items[1]
-        else:
-            args = ()
-        return RndCallStatement(func_name, tuple(args), stream=None)
-    
-    def rnd_stmt_stream(self, items: List) -> RndCallStatement:
-        """Random call statement with named stream: rnd.stream.func(args)"""
-        stream_name = items[0]
+        """Random call statement with default stream: rnd.func(args)
+
+        Grammar: RND "." IDENTIFIER "(" arg_list? ")"
+        items[0] = RND token (skipped)
+        items[1] = function name (IDENTIFIER)
+        items[2] = arguments (from arg_list, if present)
+        """
         func_name = items[1]
         if len(items) > 2 and items[2] is not None:
             args = items[2]
+        else:
+            args = ()
+        return RndCallStatement(func_name, tuple(args), stream=None)
+
+    def rnd_stmt_stream(self, items: List) -> RndCallStatement:
+        """Random call statement with named stream: rnd.stream.func(args)
+
+        Grammar: RND "." IDENTIFIER "." IDENTIFIER "(" arg_list? ")"
+        items[0] = RND token (skipped)
+        items[1] = stream name (IDENTIFIER)
+        items[2] = function name (IDENTIFIER)
+        items[3] = arguments (from arg_list, if present)
+        """
+        stream_name = items[1]
+        func_name = items[2]
+        if len(items) > 3 and items[3] is not None:
+            args = items[3]
         else:
             args = ()
         return RndCallStatement(func_name, tuple(args), stream=stream_name)

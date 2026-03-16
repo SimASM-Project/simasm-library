@@ -525,9 +525,12 @@ class ACDConverter:
             # Convention: Auto-generate departure statistics when Job goes to sink queue
             if sink_job_var and not arc.compute and not arc.accumulate:
                 self.pp.writeln(f"let time_in_system = sim_clocktime - arrival_time({sink_job_var})")
-                self.pp.writeln(f"let time_in_queue = service_start_time({sink_job_var}) - arrival_time({sink_job_var})")
                 self.pp.writeln(f"total_sojourn_time := total_sojourn_time + time_in_system")
-                self.pp.writeln(f"total_time_in_queue := total_time_in_queue + time_in_queue")
+                # Only compute time_in_queue if Job token type has service_start_time attribute
+                job_spec = self.spec.token_types.get(self.job_token_type) if self.job_token_type else None
+                if job_spec and "service_start_time" in job_spec.attributes:
+                    self.pp.writeln(f"let time_in_queue = service_start_time({sink_job_var}) - arrival_time({sink_job_var})")
+                    self.pp.writeln(f"total_time_in_queue := total_time_in_queue + time_in_queue")
                 self.pp.writeln(f"departure_count := departure_count + 1")
 
             if has_condition:

@@ -125,6 +125,8 @@ class SimASMMagics(Magics):
             return self._handle_verification(args[1:], cell)
         elif command == "convert":
             return self._handle_convert(args[1:], cell)
+        elif command == "complexity":
+            return self._handle_complexity(args[1:], cell)
         else:
             return self._display_error(f"Unknown command: {command}")
 
@@ -331,6 +333,313 @@ class SimASMMagics(Magics):
             traceback.print_exc()
             return self._display_error(f"Convert error: {e}")
 
+    def _handle_complexity(self, args: list, cell: str):
+        """Handle %%simasm complexity"""
+        from simasm.experimenter.transformer import ComplexityParser
+        from simasm.experimenter.engine import ComplexityEngine
+
+        try:
+            # Determine base path for file resolution
+            base_path = Path.cwd()
+            if self.shell is not None:
+                try:
+                    notebook_path = self.shell.user_ns.get('__session__', None)
+                    if notebook_path:
+                        base_path = Path(notebook_path).parent
+                except Exception:
+                    pass
+
+            # Parse complexity specification
+            parser = ComplexityParser()
+            spec = parser.parse(cell)
+
+            # Check if any models reference registry entries (in-memory models)
+            for model in spec.models:
+                model_source = get_model(model.simasm_path)
+                if model_source is not None:
+                    # Write registered model to temp file
+                    if self._temp_dir is None:
+                        self._temp_dir = tempfile.mkdtemp(prefix="simasm_")
+                    model_file = Path(self._temp_dir) / f"{model.simasm_path}.simasm"
+                    model_file.write_text(model_source, encoding='utf-8')
+                    model.simasm_path = str(model_file)
+
+            # Run complexity analysis
+            engine = ComplexityEngine(spec, base_path=base_path)
+
+            def progress(stage, message):
+                print(f"  {stage}: {message}")
+
+            result = engine.run(progress_callback=progress)
+
+            return self._display_complexity_result(result)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return self._display_error(f"Complexity error: {e}")
+
+    def _display_complexity_result(self, result):
+        """Display complexity analysis result as rich HTML."""
+        if not IPYTHON_AVAILABLE:
+            return self._display_complexity_result_text(result)
+
+        is_single = len(result.models) == 1 and 'error' not in result.models[0]
+
+        # Build HTML
+        html = ['<div style="margin: 10px 0;">']
+        html.append(f'<h4>Complexity Analysis: {result.name}</h4>')
+
+        # Summary badge
+        html.append('<p style="font-size: 1.1em;">')
+        html.append('<span style="background: #17a2b8; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">')
+        html.append(f'&#9733; {len(result.models)} model{"s" if len(result.models) != 1 else ""} analyzed')
+        html.append('</span>')
+        html.append(f' <span style="color: #666;">in {result.elapsed_time:.2f}s</span>')
+        html.append('</p>')
+
+        if is_single:
+            # Single model: show SMC + per-rule breakdown
+            model = result.models[0]
+
+            # SMC badge only
+            smc = model.get("smc", 0)
+            html.append('<p style="font-size: 1.1em;">')
+            if smc > 0:
+                html.append(f'<span style="background: #6f42c1; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">SMC = {smc:.0f}</span>')
+            else:
+                html.append(f'<span style="background: #007bff; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">Static HET = {model.get("het_static", 0)}</span>')
+            html.append('</p>')
+
+            # Per-rule breakdown table
+            rules = model.get("rules", [])
+            if rules:
+                # Sort by HET descending
+                rules_sorted = sorted(rules, key=lambda r: r["het"], reverse=True)
+                html.append('<table style="border-collapse: collapse; margin: 10px 0; width: 100%;">')
+                html.append('<tr style="background: #f0f0f0;">')
+                for col in ['Rule', 'HET', 'Updates', 'Conds', 'Lets', 'Calls', 'New', 'List Ops']:
+                    align = 'left' if col == 'Rule' else 'right'
+                    html.append(f'<th style="border: 1px solid #ddd; padding: 6px 8px; text-align: {align};">{col}</th>')
+                html.append('</tr>')
+
+                for rule in rules_sorted:
+                    html.append('<tr>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; font-family: monospace;">{rule["name"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: bold;">{rule["het"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right;">{rule["updates"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right;">{rule["conditionals"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right;">{rule["let_bindings"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right;">{rule["function_calls"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right;">{rule["new_entities"]}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right;">{rule["list_operations"]}</td>')
+                    html.append('</tr>')
+
+                html.append('</table>')
+
+        else:
+            # Multiple models: detect display mode
+            metrics = getattr(result, 'metrics', None)
+            paper_mode = metrics and (metrics.smc or metrics.cc or metrics.loc or metrics.kc)
+
+            if paper_mode:
+                # Paper metrics table: Model, Topology, SMC, CC, LOC, KC
+                if result.models:
+                    html.append('<table style="border-collapse: collapse; margin: 10px 0; width: 100%;">')
+                    html.append('<tr style="background: #f0f0f0;">')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Model</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Topology</th>')
+                    if metrics.smc:
+                        html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">SMC</th>')
+                    if metrics.cc:
+                        html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">CC</th>')
+                    if metrics.loc:
+                        html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">LOC</th>')
+                    if metrics.kc:
+                        html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">KC</th>')
+                    html.append('</tr>')
+
+                    for model in result.models:
+                        if 'error' in model:
+                            html.append('<tr>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{model["name"]}</td>')
+                            html.append(f'<td colspan="5" style="border: 1px solid #ddd; padding: 8px; color: #dc3545;">Error: {model["error"]}</td>')
+                            html.append('</tr>')
+                        else:
+                            html.append('<tr>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">{model["name"]}</td>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{model.get("topology", "-")}</td>')
+                            if metrics.smc:
+                                smc = model.get("smc", 0)
+                                html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">{smc:.0f}</td>')
+                            if metrics.cc:
+                                cc = model.get("cc", "-")
+                                html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{cc}</td>')
+                            if metrics.loc:
+                                loc = model.get("loc", "-")
+                                html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{loc}</td>')
+                            if metrics.kc:
+                                kc = model.get("kc", "-")
+                                if isinstance(kc, float):
+                                    html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{kc:.2f}</td>')
+                                else:
+                                    html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{kc}</td>')
+                            html.append('</tr>')
+
+                    html.append('</table>')
+            else:
+                # Legacy HET-based display
+                if result.summary:
+                    html.append('<p>')
+                    html.append(f'<strong>Static HET:</strong> ')
+                    html.append(f'min={result.summary.get("het_static_min", 0)}, ')
+                    html.append(f'max={result.summary.get("het_static_max", 0)}, ')
+                    html.append(f'mean={result.summary.get("het_static_mean", 0):.1f}')
+                    html.append('</p>')
+                    if 'smc_mean' in result.summary:
+                        html.append('<p>')
+                        html.append(f'<strong>SMC:</strong> ')
+                        html.append(f'min={result.summary.get("smc_min", 0):.0f}, ')
+                        html.append(f'max={result.summary.get("smc_max", 0):.0f}, ')
+                        html.append(f'mean={result.summary.get("smc_mean", 0):.1f}')
+                        html.append('</p>')
+
+                if result.models:
+                    html.append('<table style="border-collapse: collapse; margin: 10px 0; width: 100%;">')
+                    html.append('<tr style="background: #f0f0f0;">')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Model</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">SMC</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Static HET</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Path HET</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">|V|</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">|E|</th>')
+                    html.append('<th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Rules</th>')
+                    html.append('</tr>')
+
+                    for model in result.models:
+                        if 'error' in model:
+                            html.append('<tr>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{model["name"]}</td>')
+                            html.append(f'<td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #dc3545;">Error: {model["error"]}</td>')
+                            html.append('</tr>')
+                        else:
+                            html.append('<tr>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{model["name"]}</td>')
+                            smc = model.get("smc", 0)
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">{smc:.0f}</td>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{model.get("het_static", "-")}</td>')
+                            path_het = model.get("het_path_avg", "-")
+                            if isinstance(path_het, float):
+                                html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{path_het:.1f}</td>')
+                            else:
+                                html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{path_het}</td>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{model.get("vertex_count", "-")}</td>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{model.get("edge_count", "-")}</td>')
+                            html.append(f'<td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{model.get("total_rules", "-")}</td>')
+                            html.append('</tr>')
+
+                    html.append('</table>')
+
+        html.append('</div>')
+
+        display(HTML('\n'.join(html)))
+        return result
+
+    def _display_complexity_result_text(self, result):
+        """Display complexity result as text (fallback)."""
+        is_single = len(result.models) == 1 and 'error' not in result.models[0]
+
+        print("=" * 70)
+        print(f"COMPLEXITY ANALYSIS: {result.name}")
+        print("=" * 70)
+        print(f"Models analyzed: {len(result.models)}")
+        print(f"Time elapsed: {result.elapsed_time:.2f}s")
+        print()
+
+        if is_single:
+            model = result.models[0]
+            smc = model.get("smc", 0)
+            if smc > 0:
+                print(f"SMC = {smc:.0f}")
+            else:
+                print(f"Static HET = {model.get('het_static', 0)}")
+            print()
+
+            # Per-rule breakdown
+            rules = model.get("rules", [])
+            if rules:
+                rules_sorted = sorted(rules, key=lambda r: r["het"], reverse=True)
+                print(f"{'Rule':<25s} {'HET':>5s} {'Updates':>8s} {'Conds':>6s} {'Lets':>5s} {'Calls':>6s} {'New':>4s}")
+                print('-' * 65)
+                for rule in rules_sorted:
+                    print(f"{rule['name']:<25s} {rule['het']:>5d} {rule['updates']:>8d} "
+                          f"{rule['conditionals']:>6d} {rule['let_bindings']:>5d} "
+                          f"{rule['function_calls']:>6d} {rule['new_entities']:>4d}")
+        else:
+            metrics = getattr(result, 'metrics', None)
+            paper_mode = metrics and (metrics.smc or metrics.cc or metrics.loc or metrics.kc)
+
+            if paper_mode:
+                # Paper metrics table
+                header = f"{'Model':<25} {'Topology':<12}"
+                if metrics.smc:
+                    header += f" {'SMC':>6}"
+                if metrics.cc:
+                    header += f" {'CC':>4}"
+                if metrics.loc:
+                    header += f" {'LOC':>5}"
+                if metrics.kc:
+                    header += f" {'KC':>8}"
+                print(header)
+                print("-" * len(header))
+                for model in result.models:
+                    if 'error' in model:
+                        print(f"{model['name']:<25} ERROR: {model['error']}")
+                    else:
+                        line = f"{model['name']:<25} {model.get('topology', '-'):<12}"
+                        if metrics.smc:
+                            line += f" {model.get('smc', 0):>6.0f}"
+                        if metrics.cc:
+                            line += f" {model.get('cc', '-'):>4}"
+                        if metrics.loc:
+                            line += f" {model.get('loc', '-'):>5}"
+                        if metrics.kc:
+                            kc = model.get('kc', '-')
+                            if isinstance(kc, float):
+                                line += f" {kc:>8.4f}"
+                            else:
+                                line += f" {str(kc):>8}"
+                        print(line)
+            else:
+                if result.summary:
+                    print(f"Static HET: min={result.summary.get('het_static_min', 0)}, "
+                          f"max={result.summary.get('het_static_max', 0)}, "
+                          f"mean={result.summary.get('het_static_mean', 0):.1f}")
+                    if 'smc_mean' in result.summary:
+                        print(f"SMC: min={result.summary.get('smc_min', 0):.0f}, "
+                              f"max={result.summary.get('smc_max', 0):.0f}, "
+                              f"mean={result.summary.get('smc_mean', 0):.1f}")
+                    print()
+
+                if result.models:
+                    print(f"{'Model':<25} {'SMC':>8} {'Static':>10} {'Path':>10} {'|V|':>6} {'|E|':>6} {'Rules':>6}")
+                    print("-" * 75)
+                    for model in result.models:
+                        if 'error' in model:
+                            print(f"{model['name']:<25} ERROR: {model['error']}")
+                        else:
+                            smc = model.get("smc", 0)
+                            path_het = model.get("het_path_avg", "-")
+                            if isinstance(path_het, float):
+                                path_str = f"{path_het:.1f}"
+                            else:
+                                path_str = str(path_het)
+                            print(f"{model['name']:<25} {smc:>8.0f} {model.get('het_static', '-'):>10} "
+                                  f"{path_str:>10} {model.get('vertex_count', '-'):>6} "
+                                  f"{model.get('edge_count', '-'):>6} {model.get('total_rules', '-'):>6}")
+
+        return result
+
     def _display_convert_result(self, result, output: str, print_lines):
         """Display convert result."""
         if not IPYTHON_AVAILABLE:
@@ -480,6 +789,7 @@ class SimASMMagics(Magics):
                 html.append('<th style="border: 1px solid #ddd; padding: 8px;">Raw Trace</th>')
                 html.append('<th style="border: 1px solid #ddd; padding: 8px;">No-Stutter</th>')
                 html.append('<th style="border: 1px solid #ddd; padding: 8px;">Stutter Steps</th>')
+            html.append('<th style="border: 1px solid #ddd; padding: 8px;">Runtime (s)</th>')
             html.append('</tr>')
 
             for name, stats in result.model_stats.items():
@@ -497,6 +807,13 @@ class SimASMMagics(Magics):
                     html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{ns_len}</td>')
                 if not is_multi_seed:
                     html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("stutter_steps", "?")}</td>')
+                # Add runtime column
+                timing = result.model_timing.get(name, {}) if hasattr(result, 'model_timing') else {}
+                if is_multi_seed:
+                    time_val = timing.get("avg_total_time_sec", 0.0)
+                else:
+                    time_val = timing.get("total_time_sec", 0.0)
+                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{time_val:.3f}</td>')
                 html.append('</tr>')
 
             html.append('</table>')
@@ -508,9 +825,9 @@ class SimASMMagics(Magics):
 
     def _display_verification_result_text(self, result):
         """Display verification result as text (fallback)."""
-        print("=" * 60)
+        print("=" * 70)
         print("VERIFICATION RESULTS")
-        print("=" * 60)
+        print("=" * 70)
 
         if result.is_equivalent:
             print("[PASS] EQUIVALENT")
@@ -522,10 +839,16 @@ class SimASMMagics(Magics):
         print()
 
         if result.model_stats:
-            print(f"{'Model':<20} {'Raw':>10} {'No-Stutter':>12} {'Stutter':>10}")
-            print("-" * 60)
+            print(f"{'Model':<20} {'Raw':>10} {'No-Stutter':>12} {'Stutter':>10} {'Runtime':>10}")
+            print("-" * 70)
             for name, stats in result.model_stats.items():
-                print(f"{name:<20} {stats.get('raw_length', '?'):>10} {stats.get('ns_length', '?'):>12} {stats.get('stutter_steps', '?'):>10}")
+                timing = result.model_timing.get(name, {}) if hasattr(result, 'model_timing') else {}
+                is_multi_seed = hasattr(result, 'num_seeds') and result.num_seeds > 1
+                if is_multi_seed:
+                    time_val = timing.get("avg_total_time_sec", 0.0)
+                else:
+                    time_val = timing.get("total_time_sec", 0.0)
+                print(f"{name:<20} {stats.get('raw_length', '?'):>10} {stats.get('ns_length', '?'):>12} {stats.get('stutter_steps', '?'):>10} {time_val:>10.3f}")
 
         return result
 
@@ -578,6 +901,25 @@ class SimASMMagics(Magics):
                     register: "mm5_eg"
                     print: 50
                 endconvert
+
+        %%simasm complexity
+            Run complexity analysis on SimASM models.
+            Supports both file paths and registered in-memory models.
+            Example:
+                complexity BenchmarkAnalysis:
+                    models:
+                        model tandem_3:
+                            simasm: "tandem_3_eg"
+                            event_graph: "tandem_3_eg.json"
+                        endmodel
+                    endmodels
+                    metrics:
+                        het_static: true
+                        het_path_based: true
+                        structural: true
+                        component_breakdown: true
+                    endmetrics
+                endcomplexity
 
         %simasm_models
             List all registered in-memory models.

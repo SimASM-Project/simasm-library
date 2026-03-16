@@ -42,7 +42,7 @@ print_value: INT -> print_lines
 // Terminals
 // =============================================================================
 
-FORMALISM_TYPE: "event_graph" | "acd"
+FORMALISM_TYPE: "event_graph" | "acd" | "devs"
 
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
 

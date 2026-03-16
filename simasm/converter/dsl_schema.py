@@ -10,6 +10,7 @@ class FormalismType(str, Enum):
 
     EVENT_GRAPH = "event_graph"
     ACD = "acd"
+    DEVS = "devs"
 
 
 @dataclass

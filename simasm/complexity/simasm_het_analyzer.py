@@ -688,23 +688,71 @@ class HETResult:
 class HETCalculator:
     """
     Calculate HET (Hierarchical Execution Time) based on Nowack (2000).
-    
+    Aligned with Section 4 of the HET Complexity Metric paper.
+
     HET measures the number of microsteps required to execute an ASM rule.
     """
-    
-    # Cost constants (can be calibrated)
-    COST_VAR = 1          # Variable access
-    COST_CONST = 1        # Constant
-    COST_FUNC_BASE = 1    # Function application base cost
-    COST_UPDATE_BASE = 1  # Update base cost
-    COST_BLOCK_BASE = 1   # Block base cost
-    COST_COND_BASE = 1    # Conditional base cost
-    COST_LET_BASE = 1     # Let binding base cost
-    COST_PAR_BASE = 1     # Parallel block base cost
-    COST_NEW = 3          # Entity creation cost
-    COST_LIST_OP = 2      # List operation cost
-    COST_BINARY_OP = 1    # Binary operator cost
-    COST_UNARY_OP = 1     # Unary operator cost
+
+    # === Section 4 Aligned Cost Constants ===
+
+    # Term complexity (Section 3.2.1)
+    COST_VAR = 1              # C_term(x) = 1 for variable
+    COST_CONST = 1            # C_term(c) = 1 for constant
+    COST_FUNC_BASE = 1        # C_term(f(t1,...,tn)) = 1 + sum(C_term(ti))
+
+    # Formula complexity (Section 3.2.2)
+    COST_COMPARISON = 3       # C_formula(t1 op t2) = 1 + C_term(t1) + C_term(t2)
+    COST_AND = 1              # C_formula(phi and psi) = 1 + C(phi) + C(psi)
+    COST_OR = 1               # C_formula(phi or psi) = 1 + C(phi) + C(psi)
+    COST_NOT = 1              # C_formula(not phi) = 1 + C(phi)
+
+    # Rule complexity (Section 3.2.3)
+    COST_UPDATE_BASE = 1      # C_rule(f(t) := s) = 1 + C_term(f(t)) + C_term(s)
+    COST_BLOCK_BASE = 1       # C_rule(R1, R2, ...) = 1 + sum(C_rule(Ri))
+    COST_COND_BASE = 1        # C_rule(if phi then R) = 1 + C_formula(phi) + C_rule(R)
+    COST_LET_BASE = 1         # C_rule(let x = t in R) = 1 + C_term(t) + C_rule(R)
+    COST_PAR_BASE = 1         # C_rule(par R1 || R2) = 1 + C_rule(R1) + C_rule(R2)
+
+    # Entity and list operations (Section 4.3.1)
+    COST_NEW = 3              # new Entity creation
+    COST_LIST_OP = 2          # add, remove, pop, sort, etc.
+    COST_BINARY_OP = 1        # Binary operator cost
+    COST_UNARY_OP = 1         # Unary operator cost
+
+    # === Section 4.3 Event Graph Specific Costs ===
+
+    # Event creation block (Section 4.3.1): 16
+    # = new Event (3) + rule assignment (3) + time assignment (5) + params (3) + add to FEL (2)
+    COST_EVENT_CREATION_BLOCK = 16
+
+    # Control rule costs (Section 4.3.2)
+    COST_INIT_ROUTINE = 16    # HET_init = C_rule(event_creation_block)
+    COST_TIMING_ROUTINE = 13  # sort(2) + length>0(3) + pop(2) + clock:=(3) + current:=(3)
+    COST_EVENT_ROUTINE = 7    # lookup(3) + lookup(3) + apply(1)
+    COST_MAIN_CHECK = 14      # init_check(7) + continue_check(7)
+    COST_CONTROL_STEP = 20    # HET_timing + HET_event_routine = 13 + 7
+    COST_CONTROL_TOTAL = 50   # HET_init + HET_timing + HET_event_routine + HET_main
+
+    # Control rule name patterns
+    CONTROL_RULE_NAMES = {
+        # EG control rules
+        'initialisation_routine', 'initialization_routine', 'init_routine',
+        'timing_routine', 'event_routine', 'main',
+        # ACD control rules (three-phase scanning algorithm)
+        'scanning_phase_single', 'scanning_phase',
+        'timing_phase', 'executing_phase',
+    }
+
+    def is_control_rule(self, rule_name: str) -> bool:
+        """Check if rule is a control rule (not an event rule)."""
+        name_lower = rule_name.lower()
+        return (name_lower in self.CONTROL_RULE_NAMES or
+                name_lower.startswith('main') or
+                name_lower == 'init')
+
+    def is_event_rule(self, rule_name: str) -> bool:
+        """Check if rule is an event rule."""
+        return not self.is_control_rule(rule_name)
     
     def calculate(self, node: ASTNode) -> HETResult:
         """Calculate HET for an AST node."""
@@ -931,7 +979,7 @@ class ProgramAnalysis:
     avg_het: float
     state_update_density: float
     rules: List[RuleAnalysis]
-    
+
     # Aggregate counts
     total_updates: int
     total_conditionals: int
@@ -939,6 +987,46 @@ class ProgramAnalysis:
     total_function_calls: int
     total_new_entities: int
     total_list_operations: int
+
+
+@dataclass
+class ComplexityResult:
+    """Complete complexity analysis result including Path-Based HET and structural metrics."""
+    # Model info
+    model_name: str
+    source_file: str = ""
+
+    # Static HET (Section 4.3)
+    het_static: int = 0
+    het_event: int = 0
+    het_control: int = 0
+
+    # Path-Based HET (Section 4.4)
+    het_path_avg: float = 0.0
+    num_paths: int = 0
+    path_breakdown: List[Tuple[List[str], int]] = field(default_factory=list)
+
+    # Component breakdown
+    total_rules: int = 0
+    total_updates: int = 0
+    total_conditionals: int = 0
+    total_let_bindings: int = 0
+    total_function_calls: int = 0
+    total_new_entities: int = 0
+    total_list_operations: int = 0
+
+    # SMC (path-based)
+    smc: float = 0.0
+
+    # Structural metrics (Yucesan & Schruben 1998)
+    vertex_count: int = 0          # |V|
+    edge_count: int = 0            # |E|
+    edge_density: float = 0.0      # |E| / |V|^2
+    cyclomatic_number: int = 0     # |E| - |V| + 2
+    has_cycles: bool = False
+
+    # Per-rule breakdown
+    rules: List[RuleAnalysis] = field(default_factory=list)
 
 
 def analyze_simasm(source: str, filename: str = "input.simasm") -> ProgramAnalysis:

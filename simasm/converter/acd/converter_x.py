@@ -366,13 +366,30 @@ class ACDConverter:
             if consume.bind_as:
                 binding_to_idx[consume.bind_as] = idx
 
+        # Check for probabilistic branching (feedback/not_feedback pattern)
+        arc_conditions = [arc.condition for arc in activity.at_end]
+        has_feedback = ("feedback" in arc_conditions and
+                       "not_feedback" in arc_conditions)
+        if has_feedback:
+            self.pp.comment("Probabilistic branching (feedback)")
+            self.pp.write_let("feedback", "rnd.bernoulli(feedback_prob)")
+            self.pp.blank()
+
         # Track new token counter for this rule
         new_token_counter = 0
 
         # Process each at-end arc
         for arc_idx, arc in enumerate(activity.at_end):
-            if arc.condition != "true":
-                self.pp.write_if(arc.condition)
+            # Translate probabilistic conditions
+            condition = arc.condition
+            if has_feedback:
+                if condition == "feedback":
+                    condition = "feedback"
+                elif condition == "not_feedback":
+                    condition = "not feedback"
+
+            if condition != "true":
+                self.pp.write_if(condition)
 
             # Produce tokens to output queues
             for prod_idx, produce in enumerate(arc.produce):
@@ -418,7 +435,7 @@ class ACDConverter:
                 else:
                     self.pp.line(action)
 
-            if arc.condition != "true":
+            if condition != "true":
                 self.pp.write_endif()
 
         self.pp.write_rule_end()

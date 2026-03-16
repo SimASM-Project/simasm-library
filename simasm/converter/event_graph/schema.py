@@ -110,6 +110,14 @@ class SchedulingEdgeSpec(BaseModel):
         description="Priority γ_e for simultaneous events (higher = first)"
     )
     description: Optional[str] = None
+    feedback_action: Optional[str] = Field(
+        default=None,
+        description="State change to execute when this edge fires (e.g., feedback routing)"
+    )
+    depart_action: Optional[str] = Field(
+        default=None,
+        description="State change to execute when this edge fires (e.g., departure)"
+    )
 
     class Config:
         populate_by_name = True

@@ -201,6 +201,7 @@ class JSONFormatter(OutputFormatter):
                     "seed": rep.seed,
                     "final_time": round(rep.final_time, self.config.decimal_places),
                     "steps_taken": rep.steps_taken,
+                    "wall_time": round(rep.wall_time, self.config.decimal_places),
                     "statistics": {}
                 }
                 
@@ -284,7 +285,7 @@ class CSVFormatter(OutputFormatter):
             
             # Header
             if self.include_header:
-                header = ["rep_id", "seed", "final_time", "steps"] + stat_names
+                header = ["rep_id", "seed", "final_time", "steps", "wall_time"] + stat_names
                 writer.writerow(header)
             
             # Data rows
@@ -294,6 +295,7 @@ class CSVFormatter(OutputFormatter):
                     rep.seed,
                     self._format_float(rep.final_time),
                     rep.steps_taken,
+                    self._format_float(rep.wall_time),
                 ]
                 
                 for name in stat_names:

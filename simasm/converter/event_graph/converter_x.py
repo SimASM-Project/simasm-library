@@ -123,6 +123,9 @@ class PureEventGraphConverter:
     def _translate_condition(self, cond: Union[ConditionSpec, str]) -> str:
         """Translate an abstract condition to SimASM boolean expression."""
         if isinstance(cond, str):
+            # Handle probabilistic branching shorthand
+            if cond == "not_feedback":
+                return "not feedback"
             return cond  # Already a string like "true"
 
         if isinstance(cond, TrueCondition) or cond == "true":
@@ -441,6 +444,13 @@ class PureEventGraphConverter:
         # Get outgoing edges
         scheduling_edges = self.spec.get_outgoing_scheduling_edges(vertex.name)
         cancelling_edges = self.spec.get_outgoing_cancelling_edges(vertex.name)
+
+        # Check for probabilistic branching (feedback/not_feedback pattern)
+        edge_conditions = [self._translate_condition(e.condition) for e in scheduling_edges]
+        if "feedback" in edge_conditions and "not_feedback" in edge_conditions:
+            self.pp.comment("Probabilistic branching (feedback)")
+            self.pp.write_let("feedback", "rnd.bernoulli(feedback_prob)")
+            self.pp.blank()
 
         for i, edge in enumerate(scheduling_edges):
             self._write_edge_scheduling(edge, i)

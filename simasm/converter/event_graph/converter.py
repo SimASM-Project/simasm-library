@@ -313,6 +313,12 @@ class EventGraphConverter:
 
         if outgoing_edges:
             self.pp.comment("Process scheduling edges E_s(G)")
+            # Check for probabilistic branching (feedback/not_feedback pattern)
+            edge_conditions = [e.condition.strip() if e.condition else "true" for e in outgoing_edges]
+            if "feedback" in edge_conditions and "not_feedback" in edge_conditions:
+                self.pp.comment("Probabilistic branching (feedback)")
+                self.pp.writeln("let feedback = rnd.bernoulli(feedback_prob)")
+                self.pp.blank()
             for edge in outgoing_edges:
                 self._write_edge_scheduling(edge)
 
@@ -349,6 +355,20 @@ class EventGraphConverter:
                 expr = parts[1].strip()
                 self.pp.writeln(f"{var_name} := {expr}")
 
+    def _find_start_condition(self, target_name: str) -> Optional[str]:
+        """
+        Find the server availability condition for a Start_i target event.
+
+        When a feedback edge routes a job back to Start_i, the event should
+        only be scheduled if a server is available. This mirrors the condition
+        on the Arrive -> Start_i edge.
+        """
+        match = re.match(r'Start_(\d+)', target_name)
+        if match:
+            i = match.group(1)
+            return f"server_count_{i} < service_capacity"
+        return None
+
     def _write_edge_scheduling(self, edge: SchedulingEdgeSpec):
         """
         Write scheduling code for edge e = (v, w).
@@ -362,11 +382,32 @@ class EventGraphConverter:
         condition = edge.condition.strip().lower() if edge.condition else "true"
         has_condition = condition != "true"
 
+        # Translate probabilistic condition shorthand
+        display_condition = edge.condition
+        if edge.condition and edge.condition.strip() == "not_feedback":
+            display_condition = "not feedback"
+
         if edge.description:
             self.pp.comment(edge.description)
 
         if has_condition:
-            self.pp.writeln(f"if {edge.condition} then")
+            self.pp.writeln(f"if {display_condition} then")
+            self.pp.indent()
+
+        # Execute edge action (e.g., feedback routing state change)
+        if edge.feedback_action:
+            self._write_state_change(edge.feedback_action)
+
+        # For feedback edges targeting Start events, add server capacity guard.
+        # The feedback_action (e.g., queue_count += 1) executes unconditionally
+        # within the feedback block, but Start_i should only be scheduled if
+        # a server is actually available.
+        start_condition = None
+        if edge.feedback_action:
+            start_condition = self._find_start_condition(edge.target)
+
+        if start_condition:
+            self.pp.writeln(f"if {start_condition} then")
             self.pp.indent()
 
         # Create and schedule event
@@ -391,6 +432,10 @@ class EventGraphConverter:
 
         # Add to FEL
         self.pp.writeln(f"lib.add(future_event_list, {event_var})")
+
+        if start_condition:
+            self.pp.dedent()
+            self.pp.writeln("endif")
 
         if has_condition:
             self.pp.dedent()

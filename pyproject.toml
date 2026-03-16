@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simasm"
-version = "0.4.4"
+version = "0.5.3"
 description = "Abstract State Machine Framework for Discrete Event Simulation"
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,13 +26,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Software Development :: Interpreters",
 ]
-keywords = ["simulation", "discrete-event", "state-machine", "verification", "event-graph", "activity-cycle-diagram", "stutter-equivalence"]
+keywords = ["simulation", "discrete-event", "state-machine", "verification", "event-graph", "activity-cycle-diagram", "devs", "abstract-simulator", "stutter-equivalence"]
 
 dependencies = [
     "lark>=1.1.0",
     "pydantic>=2.0",
     "numpy>=1.20",
-    "matplotlib==3.9.2",
+    "matplotlib>=3.7,<4.0",
     "scipy>=1.9",
 ]
 
@@ -60,6 +60,7 @@ Issues = "https://github.com/SimASM-Project/simasm/issues"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["simasm*"]
+exclude = ["simasm.input*", "simasm.output*", "simasm.model_checking*"]
 
 [tool.setuptools.package-data]
 simasm = ["parser/*.lark", "experimenter/*.lark", "converter/*.lark"]

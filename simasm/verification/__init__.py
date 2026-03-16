@@ -93,6 +93,21 @@ from .kinduction import (
     format_counterexample,
 )
 
+from .numeric_trace import (
+    NumericTrace,
+    NumericObservable,
+    NumericTraceResult,
+    numeric_traces_overlap,
+    count_transitions,
+)
+
+from .trace_plotting import (
+    TimeseriesPlotConfig,
+    plot_trace_comparison_grid,
+    plot_single_trace_comparison,
+    plot_timeseries_with_annotations,
+)
+
 __all__ = [
     # label.py
     'Label',
@@ -154,4 +169,15 @@ __all__ = [
     'quick_verify',
     'format_verification_report',
     'format_counterexample',
+    # numeric_trace.py
+    'NumericTrace',
+    'NumericObservable',
+    'NumericTraceResult',
+    'numeric_traces_overlap',
+    'count_transitions',
+    # trace_plotting.py
+    'TimeseriesPlotConfig',
+    'plot_trace_comparison_grid',
+    'plot_single_trace_comparison',
+    'plot_timeseries_with_annotations',
 ]
