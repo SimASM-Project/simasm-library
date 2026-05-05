@@ -1,0 +1,101 @@
+// =============================================================================
+// Verification: M/M/5 Queue Length Stutter Equivalence (v2 Models)
+// =============================================================================
+// Verifies stutter equivalence between the Event Graph v2 and ACD v2 models
+// of an M/M/5 queueing system based on QUEUE LENGTH observation level.
+//
+// v2 Models queue variables:
+//   EG:  q (queue length state variable)
+//   ACD: marking(Q) (tokens in queue Q)
+//
+// Observation Level W = { queue_eq_0, queue_eq_1, ..., queue_eq_5, queue_ge_6 }
+// This tracks the number of customers waiting in the queue.
+// =============================================================================
+
+verification MM5_Queue_Stutter_Equivalence:
+
+    models:
+        import EG from "mm5_eg"
+        import ACD from "mm5_acd"
+    endmodels
+
+    // Multi-seed verification: test with 50 different seeds
+    seed_range: 1 to 50
+
+    labels:
+        // Observation level: queue length predicates
+        label queue_eq_0 for EG: "q == 0"
+        label queue_eq_0 for ACD: "queue_count() == 0"
+
+        label queue_eq_1 for EG: "q == 1"
+        label queue_eq_1 for ACD: "queue_count() == 1"
+
+        label queue_eq_2 for EG: "q == 2"
+        label queue_eq_2 for ACD: "queue_count() == 2"
+
+        label queue_eq_3 for EG: "q == 3"
+        label queue_eq_3 for ACD: "queue_count() == 3"
+
+        label queue_eq_4 for EG: "q == 4"
+        label queue_eq_4 for ACD: "queue_count() == 4"
+
+        label queue_eq_5 for EG: "q == 5"
+        label queue_eq_5 for ACD: "queue_count() == 5"
+
+        // Greater than or equal to 6 (for longer queues)
+        label queue_ge_6 for EG: "q >= 6"
+        label queue_ge_6 for ACD: "queue_count() >= 6"
+
+    endlabels
+
+    observables:
+        observable queue_eq_0:
+            EG -> queue_eq_0
+            ACD -> queue_eq_0
+        endobservable
+
+        observable queue_eq_1:
+            EG -> queue_eq_1
+            ACD -> queue_eq_1
+        endobservable
+
+        observable queue_eq_2:
+            EG -> queue_eq_2
+            ACD -> queue_eq_2
+        endobservable
+
+        observable queue_eq_3:
+            EG -> queue_eq_3
+            ACD -> queue_eq_3
+        endobservable
+
+        observable queue_eq_4:
+            EG -> queue_eq_4
+            ACD -> queue_eq_4
+        endobservable
+
+        observable queue_eq_5:
+            EG -> queue_eq_5
+            ACD -> queue_eq_5
+        endobservable
+
+        observable queue_ge_6:
+            EG -> queue_ge_6
+            ACD -> queue_ge_6
+        endobservable
+
+    endobservables
+
+    check:
+        type: stutter_equivalence
+        run_length: 100.0
+        timeout: 600
+    endcheck
+
+    output:
+        format: "json"
+        file_path: "mm5_queue_verification_results.json"
+        include_counterexample: true
+    endoutput
+
+endverification

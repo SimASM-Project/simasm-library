@@ -163,6 +163,61 @@ simasm-library/
 | `warehouse_verification.ipynb` | Complex 6-station warehouse verification | 5 |
 | `warehouse_verification_w_analysis.ipynb` | Extended statistical analysis | 5 |
 
+## Input Files
+
+### Models (`simasm/input/models/`)
+| File | Description |
+|------|-------------|
+| `mm5_eg.simasm` | M/M/5 queue using Event Graph formalism |
+| `mm5_acd.simasm` | M/M/5 queue using Activity Cycle Diagram |
+| `warehouse_eg.simasm` | 6-station warehouse outbound process (EG) |
+| `warehouse_acd.simasm` | 6-station warehouse outbound process (ACD) |
+
+### Experiments (`simasm/input/experiments/`)
+| File | Description |
+|------|-------------|
+| `littles_law_eg.simasm` | Little's Law verification (L = λW) for EG |
+| `littles_law_acd.simasm` | Little's Law verification for ACD |
+| `mm5_verification.simasm` | Stutter equivalence: EG vs ACD |
+| `warehouse_w_stutter_equivalence.simasm` | Warehouse model verification |
+
+## Output Files
+
+Outputs are saved to `simasm/output/` with timestamped directories:
+
+```
+simasm/output/
+└── 2026-01-19_20-14-21_ExperimentName/
+    ├── ExperimentName_results.json   # Statistics
+    ├── boxplots.png                  # Box plots
+    ├── summary_statistics.png        # Bar charts with CIs
+    └── timeseries.png                # Time series traces
+```
+
+### JSON Output Structure
+```json
+{
+  "experiment": "LittlesLawEG",
+  "metadata": {
+    "num_replications": 30,
+    "total_wall_time": 7.522,
+    "generated_at": "2026-01-19T18:34:06"
+  },
+  "replications": [
+    {
+      "id": 1,
+      "seed": 12345,
+      "final_time": 1000.49,
+      "steps_taken": 3239,
+      "statistics": {
+        "L_system": 2.05,
+        "rho_utilization": 0.40
+      }
+    }
+  ]
+}
+```
+
 ## Two DES Formalisms
 
 ### Event Graph (EG)

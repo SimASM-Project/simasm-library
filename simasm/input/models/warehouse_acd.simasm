@@ -1,0 +1,952 @@
+// =============================================================================
+// Activity Cycle Diagram Warehouse Outbound Process - SimASM v1.0
+// =============================================================================
+// A warehouse outbound process modeled using ACD formalism
+// Based on Tocher (1960), Carrie (1988)
+// Three-phase approach: A-phase (time advance), B-phase (scan), C-phase (execute)
+// Trace equivalent to warehouse_eg.simasm
+// =============================================================================
+
+// =============================================================================
+// IMPORT LIBRARIES
+// =============================================================================
+
+import Random as rnd
+import Stdlib as lib
+
+// =============================================================================
+// DOMAIN DECLARATIONS
+// =============================================================================
+
+domain Object
+
+// Passive states (Queues - ovals in ACD)
+domain Queue <: Object
+
+// Active states (Activities - rectangles in ACD)
+domain Activity <: Object
+
+// Tokens (entities flowing through the diagram)
+domain Token <: Object
+domain Job <: Token
+domain Resource <: Token
+
+// Bound-to-occur events
+domain BTOEvent <: Object
+
+// =============================================================================
+// QUEUE DECLARATIONS (Passive States)
+// =============================================================================
+
+// Creator resource queues (capacity 1 each)
+const C1: Queue  // Zone A Type 1 creator
+const C2: Queue  // Zone A Type 2 creator
+const C3: Queue  // Zone B Type 1 creator
+const C4: Queue  // Zone B Type 2 creator
+
+// Staging queues
+const Q1: Queue  // Pick Zone A staging queue
+const Q2: Queue  // Pick Zone B staging queue
+const Q3: Queue  // Labelling staging queue
+const Q4: Queue  // Scanning staging queue
+const Q5: Queue  // Packing staging queue
+const Q6: Queue  // Release staging queue
+
+// Server resource queues
+const S1: Queue  // Pick Zone A servers
+const S2: Queue  // Pick Zone B servers
+const S3: Queue  // Labelling servers
+const S4: Queue  // Scanning servers
+const S5: Queue  // Packing servers
+const S6: Queue  // Release servers
+
+// Sink
+const Jobs: Queue  // Completed jobs
+
+// =============================================================================
+// ACTIVITY DECLARATIONS (Active States)
+// =============================================================================
+
+const CreateZA1: Activity  // Create Zone A Type 1
+const CreateZA2: Activity  // Create Zone A Type 2
+const CreateZB1: Activity  // Create Zone B Type 1
+const CreateZB2: Activity  // Create Zone B Type 2
+const PickZoneA: Activity  // Picking Zone A
+const PickZoneB: Activity  // Picking Zone B
+const Label: Activity      // Labelling
+const Scan: Activity       // Scanning
+const Pack: Activity       // Packing
+const Release: Activity    // Release
+
+// =============================================================================
+// CONSTANT DECLARATIONS
+// =============================================================================
+
+// Queue capacities
+const Q1_max: Nat  // Pick Zone A queue capacity
+const Q2_max: Nat  // Pick Zone B queue capacity
+const Q3_max: Nat  // Labelling queue capacity
+const Q4_max: Nat  // Scanning queue capacity
+const Q5_max: Nat  // Packing queue capacity
+const Q6_max: Nat  // Release queue capacity
+
+// Server capacities
+const S1_capacity: Nat  // Pick Zone A servers
+const S2_capacity: Nat  // Pick Zone B servers
+const S3_capacity: Nat  // Labelling servers
+const S4_capacity: Nat  // Scanning servers
+const S5_capacity: Nat  // Packing servers
+const S6_capacity: Nat  // Release servers
+
+// Timing parameters (means for exponential distributions)
+const iat_c1_mean: Real  // Interarrival time mean for Zone A Type 1
+const iat_c2_mean: Real  // Interarrival time mean for Zone A Type 2
+const iat_c3_mean: Real  // Interarrival time mean for Zone B Type 1
+const iat_c4_mean: Real  // Interarrival time mean for Zone B Type 2
+const ist_s1_mean: Real  // Service time mean for Pick Zone A
+const ist_s2_mean: Real  // Service time mean for Pick Zone B
+const ist_s3_mean: Real  // Service time mean for Label
+const ist_s4_mean: Real  // Service time mean for Scan
+const ist_s5_mean: Real  // Service time mean for Pack
+const ist_s6_mean: Real  // Service time mean for Release
+
+const sim_end_time: Real
+
+// =============================================================================
+// DYNAMIC VARIABLE DECLARATIONS
+// =============================================================================
+
+var future_event_list: List<BTOEvent>
+var sim_clocktime: Real
+var job_id_counter: Nat
+var activities_started: Bool
+var current_phase: String
+
+// Statistics
+var total_departures: Nat
+var total_time_in_system: Real
+
+// =============================================================================
+// RANDOM STREAM VARIABLES
+// =============================================================================
+
+// Creation durations
+var duration_create_za1: rnd.exponential(iat_c1_mean) as "creation_za1"
+var duration_create_za2: rnd.exponential(iat_c2_mean) as "creation_za2"
+var duration_create_zb1: rnd.exponential(iat_c3_mean) as "creation_zb1"
+var duration_create_zb2: rnd.exponential(iat_c4_mean) as "creation_zb2"
+
+// Service durations
+var duration_pick_a: rnd.exponential(ist_s1_mean) as "service_pick_a"
+var duration_pick_b: rnd.exponential(ist_s2_mean) as "service_pick_b"
+var duration_label: rnd.exponential(ist_s3_mean) as "service_label"
+var duration_scan: rnd.exponential(ist_s4_mean) as "service_scan"
+var duration_pack: rnd.exponential(ist_s5_mean) as "service_pack"
+var duration_release: rnd.exponential(ist_s6_mean) as "service_release"
+
+// =============================================================================
+// DYNAMIC FUNCTION DECLARATIONS
+// =============================================================================
+
+// Marking (token counts in queues)
+dynamic function marking(q: Queue): Nat
+dynamic function tokens(q: Queue): List<Token>
+
+// BTO-Event properties
+dynamic function bto_activity(e: BTOEvent): Activity
+dynamic function bto_scheduled_time(e: BTOEvent): Real
+dynamic function bto_priority(e: BTOEvent): Nat  // Lower = higher priority for tie-breaking
+dynamic function bto_tokens(e: BTOEvent): List<Token>
+
+// Job statistics
+dynamic function arrival_time(j: Job): Real
+dynamic function service_start_time(j: Job): Real
+dynamic function job_type(j: Job): Nat  // 1=ZA1, 2=ZA2, 3=ZB1, 4=ZB2
+
+// Token identification
+static function id(t: Token): Nat
+
+// =============================================================================
+// DERIVED FUNCTIONS (Observable State - aligned with Event Graph)
+// =============================================================================
+
+derived function get_Q1(): Nat = marking(Q1)
+derived function get_Q2(): Nat = marking(Q2)
+derived function get_Q3(): Nat = marking(Q3)
+derived function get_Q4(): Nat = marking(Q4)
+derived function get_Q5(): Nat = marking(Q5)
+derived function get_Q6(): Nat = marking(Q6)
+
+derived function get_S1_available(): Nat = marking(S1)
+derived function get_S2_available(): Nat = marking(S2)
+derived function get_S3_available(): Nat = marking(S3)
+derived function get_S4_available(): Nat = marking(S4)
+derived function get_S5_available(): Nat = marking(S5)
+derived function get_S6_available(): Nat = marking(S6)
+
+derived function get_S1_busy(): Nat = S1_capacity - marking(S1)
+derived function get_S2_busy(): Nat = S2_capacity - marking(S2)
+derived function get_S3_busy(): Nat = S3_capacity - marking(S3)
+derived function get_S4_busy(): Nat = S4_capacity - marking(S4)
+derived function get_S5_busy(): Nat = S5_capacity - marking(S5)
+derived function get_S6_busy(): Nat = S6_capacity - marking(S6)
+
+derived function total_in_system(): Nat =
+    get_Q1() + get_Q2() + get_Q3() + get_Q4() + get_Q5() + get_Q6() +
+    get_S1_busy() + get_S2_busy() + get_S3_busy() + get_S4_busy() +
+    get_S5_busy() + get_S6_busy()
+
+// =============================================================================
+// OBSERVABLE STATE PREDICATES (for verification)
+// =============================================================================
+
+// S1 busy predicates (Pick Zone A)
+derived function s1_busy_eq_0(): Bool = get_S1_busy() == 0
+derived function s1_busy_eq_1(): Bool = get_S1_busy() == 1
+derived function s1_busy_eq_2(): Bool = get_S1_busy() == 2
+derived function s1_busy_eq_3(): Bool = get_S1_busy() == 3
+derived function s1_busy_eq_4(): Bool = get_S1_busy() == 4
+
+// S2 busy predicates (Pick Zone B)
+derived function s2_busy_eq_0(): Bool = get_S2_busy() == 0
+derived function s2_busy_eq_1(): Bool = get_S2_busy() == 1
+derived function s2_busy_eq_2(): Bool = get_S2_busy() == 2
+
+// S3 busy predicates (Label)
+derived function s3_busy_eq_0(): Bool = get_S3_busy() == 0
+derived function s3_busy_eq_1(): Bool = get_S3_busy() == 1
+derived function s3_busy_eq_2(): Bool = get_S3_busy() == 2
+derived function s3_busy_eq_3(): Bool = get_S3_busy() == 3
+
+// S4 busy predicates (Scan)
+derived function s4_busy_eq_0(): Bool = get_S4_busy() == 0
+derived function s4_busy_eq_1(): Bool = get_S4_busy() == 1
+
+// S5 busy predicates (Pack)
+derived function s5_busy_eq_0(): Bool = get_S5_busy() == 0
+derived function s5_busy_eq_1(): Bool = get_S5_busy() == 1
+derived function s5_busy_eq_2(): Bool = get_S5_busy() == 2
+derived function s5_busy_eq_3(): Bool = get_S5_busy() == 3
+
+// S6 busy predicates (Release)
+derived function s6_busy_eq_0(): Bool = get_S6_busy() == 0
+derived function s6_busy_eq_1(): Bool = get_S6_busy() == 1
+derived function s6_busy_eq_2(): Bool = get_S6_busy() == 2
+
+// =============================================================================
+// AT-BEGIN CONDITIONS (Activity start preconditions)
+// =============================================================================
+
+derived function at_begin_condition_create_za1(): Bool =
+    marking(C1) > 0
+
+derived function at_begin_condition_create_za2(): Bool =
+    marking(C2) > 0
+
+derived function at_begin_condition_create_zb1(): Bool =
+    marking(C3) > 0
+
+derived function at_begin_condition_create_zb2(): Bool =
+    marking(C4) > 0
+
+derived function at_begin_condition_pick_zone_a(): Bool =
+    marking(Q1) > 0 and marking(S1) > 0
+
+derived function at_begin_condition_pick_zone_b(): Bool =
+    marking(Q2) > 0 and marking(S2) > 0
+
+derived function at_begin_condition_label(): Bool =
+    marking(Q3) > 0 and marking(S3) > 0
+
+derived function at_begin_condition_scan(): Bool =
+    marking(Q4) > 0 and marking(S4) > 0
+
+derived function at_begin_condition_pack(): Bool =
+    marking(Q5) > 0 and marking(S5) > 0
+
+derived function at_begin_condition_release(): Bool =
+    marking(Q6) > 0 and marking(S6) > 0
+
+// =============================================================================
+// RULES (ACD Phases)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Phase 0: Initialization
+// -----------------------------------------------------------------------------
+
+rule initialisation_routine() =
+    // Initialize creator tokens (C1-C4)
+    let creator1 = new Resource
+    id(creator1) := 1
+    tokens(C1) := [creator1]
+
+    let creator2 = new Resource
+    id(creator2) := 2
+    tokens(C2) := [creator2]
+
+    let creator3 = new Resource
+    id(creator3) := 3
+    tokens(C3) := [creator3]
+
+    let creator4 = new Resource
+    id(creator4) := 4
+    tokens(C4) := [creator4]
+
+    // Initialize server tokens
+    tokens(S1) := []
+    tokens(S2) := []
+    tokens(S3) := []
+    tokens(S4) := []
+    tokens(S5) := []
+    tokens(S6) := []
+
+    init_servers_s1(S1_capacity)
+    init_servers_s2(S2_capacity)
+    init_servers_s3(S3_capacity)
+    init_servers_s4(S4_capacity)
+    init_servers_s5(S5_capacity)
+    init_servers_s6(S6_capacity)
+endrule
+
+// Helper rules to initialize server tokens
+rule init_servers_s1(remaining: Nat) =
+    if remaining > 0 then
+        let server_token = new Resource
+        id(server_token) := 100 + (S1_capacity - remaining + 1)
+        lib.add(tokens(S1), server_token)
+        init_servers_s1(remaining - 1)
+    endif
+endrule
+
+rule init_servers_s2(remaining: Nat) =
+    if remaining > 0 then
+        let server_token = new Resource
+        id(server_token) := 200 + (S2_capacity - remaining + 1)
+        lib.add(tokens(S2), server_token)
+        init_servers_s2(remaining - 1)
+    endif
+endrule
+
+rule init_servers_s3(remaining: Nat) =
+    if remaining > 0 then
+        let server_token = new Resource
+        id(server_token) := 300 + (S3_capacity - remaining + 1)
+        lib.add(tokens(S3), server_token)
+        init_servers_s3(remaining - 1)
+    endif
+endrule
+
+rule init_servers_s4(remaining: Nat) =
+    if remaining > 0 then
+        let server_token = new Resource
+        id(server_token) := 400 + (S4_capacity - remaining + 1)
+        lib.add(tokens(S4), server_token)
+        init_servers_s4(remaining - 1)
+    endif
+endrule
+
+rule init_servers_s5(remaining: Nat) =
+    if remaining > 0 then
+        let server_token = new Resource
+        id(server_token) := 500 + (S5_capacity - remaining + 1)
+        lib.add(tokens(S5), server_token)
+        init_servers_s5(remaining - 1)
+    endif
+endrule
+
+rule init_servers_s6(remaining: Nat) =
+    if remaining > 0 then
+        let server_token = new Resource
+        id(server_token) := 600 + (S6_capacity - remaining + 1)
+        lib.add(tokens(S6), server_token)
+        init_servers_s6(remaining - 1)
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// At-begin Actions (Activity instantiation)
+// -----------------------------------------------------------------------------
+
+rule at_begin_action_create_za1() =
+    // Consume creator token from C1
+    marking(C1) := marking(C1) - 1
+    let creator_token = lib.pop(tokens(C1))
+
+    // Schedule BTO-event for activity completion
+    // Priority scheme: CreateZA1=1, CreateZA2=2, CreateZB1=3, CreateZB2=4
+    //                  PickZoneA=5, PickZoneB=6, Label=7, Scan=8, Pack=9, Release=10
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := CreateZA1
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_create_za1
+    bto_priority(bto_event) := 1
+    bto_tokens(bto_event) := [creator_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_create_za2() =
+    marking(C2) := marking(C2) - 1
+    let creator_token = lib.pop(tokens(C2))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := CreateZA2
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_create_za2
+    bto_priority(bto_event) := 2
+    bto_tokens(bto_event) := [creator_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_create_zb1() =
+    marking(C3) := marking(C3) - 1
+    let creator_token = lib.pop(tokens(C3))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := CreateZB1
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_create_zb1
+    bto_priority(bto_event) := 3
+    bto_tokens(bto_event) := [creator_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_create_zb2() =
+    marking(C4) := marking(C4) - 1
+    let creator_token = lib.pop(tokens(C4))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := CreateZB2
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_create_zb2
+    bto_priority(bto_event) := 4
+    bto_tokens(bto_event) := [creator_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_pick_zone_a() =
+    // Consume server token from S1
+    marking(S1) := marking(S1) - 1
+    let server_token = lib.pop(tokens(S1))
+
+    // Consume job token from Q1
+    marking(Q1) := marking(Q1) - 1
+    let job_token = lib.pop(tokens(Q1))
+
+    service_start_time(job_token) := sim_clocktime
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := PickZoneA
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_pick_a
+    bto_priority(bto_event) := 5
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_pick_zone_b() =
+    marking(S2) := marking(S2) - 1
+    let server_token = lib.pop(tokens(S2))
+
+    marking(Q2) := marking(Q2) - 1
+    let job_token = lib.pop(tokens(Q2))
+
+    service_start_time(job_token) := sim_clocktime
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := PickZoneB
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_pick_b
+    bto_priority(bto_event) := 6
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_label() =
+    marking(S3) := marking(S3) - 1
+    let server_token = lib.pop(tokens(S3))
+
+    marking(Q3) := marking(Q3) - 1
+    let job_token = lib.pop(tokens(Q3))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := Label
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_label
+    bto_priority(bto_event) := 7
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_scan() =
+    marking(S4) := marking(S4) - 1
+    let server_token = lib.pop(tokens(S4))
+
+    marking(Q4) := marking(Q4) - 1
+    let job_token = lib.pop(tokens(Q4))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := Scan
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_scan
+    bto_priority(bto_event) := 8
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_pack() =
+    marking(S5) := marking(S5) - 1
+    let server_token = lib.pop(tokens(S5))
+
+    marking(Q5) := marking(Q5) - 1
+    let job_token = lib.pop(tokens(Q5))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := Pack
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_pack
+    bto_priority(bto_event) := 9
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+rule at_begin_action_release() =
+    marking(S6) := marking(S6) - 1
+    let server_token = lib.pop(tokens(S6))
+
+    marking(Q6) := marking(Q6) - 1
+    let job_token = lib.pop(tokens(Q6))
+
+    let bto_event = new BTOEvent
+    bto_activity(bto_event) := Release
+    bto_scheduled_time(bto_event) := sim_clocktime + duration_release
+    bto_priority(bto_event) := 10
+    bto_tokens(bto_event) := [server_token, job_token]
+    lib.add(future_event_list, bto_event)
+endrule
+
+// -----------------------------------------------------------------------------
+// At-end Actions (Activity completion)
+// -----------------------------------------------------------------------------
+
+rule at_end_action_create_za1(bound_tokens: List<Token>) =
+    // Arc 1: Return creator resource to C1
+    let creator_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(C1), creator_token)
+    marking(C1) := marking(C1) + 1
+
+    // Arc 2: Create new job and add to Q1 (if capacity allows)
+    if marking(Q1) < Q1_max then
+        job_id_counter := job_id_counter + 1
+        let new_job = new Job
+        id(new_job) := job_id_counter
+        job_type(new_job) := 1
+        arrival_time(new_job) := sim_clocktime
+        lib.add(tokens(Q1), new_job)
+        marking(Q1) := marking(Q1) + 1
+    endif
+endrule
+
+rule at_end_action_create_za2(bound_tokens: List<Token>) =
+    let creator_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(C2), creator_token)
+    marking(C2) := marking(C2) + 1
+
+    if marking(Q1) < Q1_max then
+        job_id_counter := job_id_counter + 1
+        let new_job = new Job
+        id(new_job) := job_id_counter
+        job_type(new_job) := 2
+        arrival_time(new_job) := sim_clocktime
+        lib.add(tokens(Q1), new_job)
+        marking(Q1) := marking(Q1) + 1
+    endif
+endrule
+
+rule at_end_action_create_zb1(bound_tokens: List<Token>) =
+    let creator_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(C3), creator_token)
+    marking(C3) := marking(C3) + 1
+
+    if marking(Q2) < Q2_max then
+        job_id_counter := job_id_counter + 1
+        let new_job = new Job
+        id(new_job) := job_id_counter
+        job_type(new_job) := 3
+        arrival_time(new_job) := sim_clocktime
+        lib.add(tokens(Q2), new_job)
+        marking(Q2) := marking(Q2) + 1
+    endif
+endrule
+
+rule at_end_action_create_zb2(bound_tokens: List<Token>) =
+    let creator_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(C4), creator_token)
+    marking(C4) := marking(C4) + 1
+
+    if marking(Q2) < Q2_max then
+        job_id_counter := job_id_counter + 1
+        let new_job = new Job
+        id(new_job) := job_id_counter
+        job_type(new_job) := 4
+        arrival_time(new_job) := sim_clocktime
+        lib.add(tokens(Q2), new_job)
+        marking(Q2) := marking(Q2) + 1
+    endif
+endrule
+
+rule at_end_action_pick_zone_a(bound_tokens: List<Token>) =
+    // Arc 1: Return server resource to S1
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S1), server_token)
+    marking(S1) := marking(S1) + 1
+
+    // Arc 2: Move job to Q3 (labelling queue)
+    let job_token = lib.get(bound_tokens, 1)
+    if marking(Q3) < Q3_max then
+        lib.add(tokens(Q3), job_token)
+        marking(Q3) := marking(Q3) + 1
+    endif
+endrule
+
+rule at_end_action_pick_zone_b(bound_tokens: List<Token>) =
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S2), server_token)
+    marking(S2) := marking(S2) + 1
+
+    let job_token = lib.get(bound_tokens, 1)
+    if marking(Q3) < Q3_max then
+        lib.add(tokens(Q3), job_token)
+        marking(Q3) := marking(Q3) + 1
+    endif
+endrule
+
+rule at_end_action_label(bound_tokens: List<Token>) =
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S3), server_token)
+    marking(S3) := marking(S3) + 1
+
+    let job_token = lib.get(bound_tokens, 1)
+    if marking(Q4) < Q4_max then
+        lib.add(tokens(Q4), job_token)
+        marking(Q4) := marking(Q4) + 1
+    endif
+endrule
+
+rule at_end_action_scan(bound_tokens: List<Token>) =
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S4), server_token)
+    marking(S4) := marking(S4) + 1
+
+    let job_token = lib.get(bound_tokens, 1)
+    if marking(Q5) < Q5_max then
+        lib.add(tokens(Q5), job_token)
+        marking(Q5) := marking(Q5) + 1
+    endif
+endrule
+
+rule at_end_action_pack(bound_tokens: List<Token>) =
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S5), server_token)
+    marking(S5) := marking(S5) + 1
+
+    let job_token = lib.get(bound_tokens, 1)
+    if marking(Q6) < Q6_max then
+        lib.add(tokens(Q6), job_token)
+        marking(Q6) := marking(Q6) + 1
+    endif
+endrule
+
+rule at_end_action_release(bound_tokens: List<Token>) =
+    let server_token = lib.get(bound_tokens, 0)
+    lib.add(tokens(S6), server_token)
+    marking(S6) := marking(S6) + 1
+
+    // Move completed job to sink
+    let job_token = lib.get(bound_tokens, 1)
+
+    // Accumulate time statistics
+    let time_in_system = sim_clocktime - arrival_time(job_token)
+    total_time_in_system := total_time_in_system + time_in_system
+    total_departures := total_departures + 1
+
+    lib.add(tokens(Jobs), job_token)
+    marking(Jobs) := marking(Jobs) + 1
+endrule
+
+// -----------------------------------------------------------------------------
+// Phase 1: B-phase (Scanning Phase) - One activity per step
+// -----------------------------------------------------------------------------
+
+rule scanning_phase_single() =
+    activities_started := false
+
+    // Priority order: CreateZA1=1, CreateZA2=2, CreateZB1=3, CreateZB2=4
+    //                 PickZoneA=5, PickZoneB=6, Label=7, Scan=8, Pack=9, Release=10
+
+    // Priority 1: CreateZA1
+    if not activities_started and at_begin_condition_create_za1() then
+        at_begin_action_create_za1()
+        activities_started := true
+    endif
+
+    // Priority 2: CreateZA2
+    if not activities_started and at_begin_condition_create_za2() then
+        at_begin_action_create_za2()
+        activities_started := true
+    endif
+
+    // Priority 3: CreateZB1
+    if not activities_started and at_begin_condition_create_zb1() then
+        at_begin_action_create_zb1()
+        activities_started := true
+    endif
+
+    // Priority 4: CreateZB2
+    if not activities_started and at_begin_condition_create_zb2() then
+        at_begin_action_create_zb2()
+        activities_started := true
+    endif
+
+    // Priority 5: PickZoneA
+    if not activities_started and at_begin_condition_pick_zone_a() then
+        at_begin_action_pick_zone_a()
+        activities_started := true
+    endif
+
+    // Priority 6: PickZoneB
+    if not activities_started and at_begin_condition_pick_zone_b() then
+        at_begin_action_pick_zone_b()
+        activities_started := true
+    endif
+
+    // Priority 7: Label
+    if not activities_started and at_begin_condition_label() then
+        at_begin_action_label()
+        activities_started := true
+    endif
+
+    // Priority 8: Scan
+    if not activities_started and at_begin_condition_scan() then
+        at_begin_action_scan()
+        activities_started := true
+    endif
+
+    // Priority 9: Pack
+    if not activities_started and at_begin_condition_pack() then
+        at_begin_action_pack()
+        activities_started := true
+    endif
+
+    // Priority 10: Release
+    if not activities_started and at_begin_condition_release() then
+        at_begin_action_release()
+        activities_started := true
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// Phase 2: A-phase (Timing Phase) - advance clock
+// -----------------------------------------------------------------------------
+
+rule timing_phase() =
+    // Sort FEL by (scheduled_time, priority) - lower priority number = higher priority
+    lib.sort(future_event_list, "bto_scheduled_time", "bto_priority")
+
+    // Get next event
+    let next_event = lib.pop(future_event_list)
+
+    // Advance clock
+    sim_clocktime := bto_scheduled_time(next_event)
+
+    // Execute the event
+    executing_phase(next_event)
+endrule
+
+// -----------------------------------------------------------------------------
+// Phase 3: C-phase (Executing Phase)
+// -----------------------------------------------------------------------------
+
+rule executing_phase(bto_event: BTOEvent) =
+    let activity = bto_activity(bto_event)
+    let bound_tokens = bto_tokens(bto_event)
+
+    if activity == CreateZA1 then
+        at_end_action_create_za1(bound_tokens)
+    endif
+
+    if activity == CreateZA2 then
+        at_end_action_create_za2(bound_tokens)
+    endif
+
+    if activity == CreateZB1 then
+        at_end_action_create_zb1(bound_tokens)
+    endif
+
+    if activity == CreateZB2 then
+        at_end_action_create_zb2(bound_tokens)
+    endif
+
+    if activity == PickZoneA then
+        at_end_action_pick_zone_a(bound_tokens)
+    endif
+
+    if activity == PickZoneB then
+        at_end_action_pick_zone_b(bound_tokens)
+    endif
+
+    if activity == Label then
+        at_end_action_label(bound_tokens)
+    endif
+
+    if activity == Scan then
+        at_end_action_scan(bound_tokens)
+    endif
+
+    if activity == Pack then
+        at_end_action_pack(bound_tokens)
+    endif
+
+    if activity == Release then
+        at_end_action_release(bound_tokens)
+    endif
+endrule
+
+// =============================================================================
+// INITIAL STATE
+// =============================================================================
+
+init:
+    // Create Queue objects
+    C1 := new Queue
+    C2 := new Queue
+    C3 := new Queue
+    C4 := new Queue
+    Q1 := new Queue
+    Q2 := new Queue
+    Q3 := new Queue
+    Q4 := new Queue
+    Q5 := new Queue
+    Q6 := new Queue
+    S1 := new Queue
+    S2 := new Queue
+    S3 := new Queue
+    S4 := new Queue
+    S5 := new Queue
+    S6 := new Queue
+    Jobs := new Queue
+
+    // Create Activity objects
+    CreateZA1 := new Activity
+    CreateZA2 := new Activity
+    CreateZB1 := new Activity
+    CreateZB2 := new Activity
+    PickZoneA := new Activity
+    PickZoneB := new Activity
+    Label := new Activity
+    Scan := new Activity
+    Pack := new Activity
+    Release := new Activity
+
+    // Queue capacities (matching EG model)
+    Q1_max := 30
+    Q2_max := 20
+    Q3_max := 50
+    Q4_max := 20
+    Q5_max := 30
+    Q6_max := 20
+
+    // Server capacities (matching EG model)
+    S1_capacity := 4
+    S2_capacity := 2
+    S3_capacity := 3
+    S4_capacity := 1
+    S5_capacity := 3
+    S6_capacity := 2
+
+    // Timing parameters (matching EG model)
+    iat_c1_mean := 325.5
+    iat_c2_mean := 527.6
+    iat_c3_mean := 226.1
+    iat_c4_mean := 985.6
+    ist_s1_mean := 78.4
+    ist_s2_mean := 76.2
+    ist_s3_mean := 288.8
+    ist_s4_mean := 31.2
+    ist_s5_mean := 66.8
+    ist_s6_mean := 1.0
+    
+    // Initialize markings (matching ACD specification initial marking)
+    marking(C1) := 1
+    marking(C2) := 1
+    marking(C3) := 1
+    marking(C4) := 1
+    marking(Q1) := 0
+    marking(Q2) := 0
+    marking(Q3) := 0
+    marking(Q4) := 0
+    marking(Q5) := 0
+    marking(Q6) := 0
+    marking(S1) := 4
+    marking(S2) := 2
+    marking(S3) := 3
+    marking(S4) := 1
+    marking(S5) := 3
+    marking(S6) := 2
+    marking(Jobs) := 0
+
+    // Initialize token lists
+    tokens(C1) := []
+    tokens(C2) := []
+    tokens(C3) := []
+    tokens(C4) := []
+    tokens(Q1) := []
+    tokens(Q2) := []
+    tokens(Q3) := []
+    tokens(Q4) := []
+    tokens(Q5) := []
+    tokens(Q6) := []
+    tokens(S1) := []
+    tokens(S2) := []
+    tokens(S3) := []
+    tokens(S4) := []
+    tokens(S5) := []
+    tokens(S6) := []
+    tokens(Jobs) := []
+
+    // Simulation settings
+    sim_clocktime := 0.0
+    sim_end_time := 1000.0
+
+    // Initialize FEL
+    future_event_list := []
+
+    // Counters
+    job_id_counter := 0
+    total_departures := 0
+    total_time_in_system := 0.0
+
+    // Phase control
+    activities_started := false
+    current_phase := "scan"
+endinit
+
+// =============================================================================
+// MAIN RULE
+// =============================================================================
+
+main rule main =
+    // Initialize tokens on first step
+    if sim_clocktime == 0.0 and lib.length(tokens(C1)) == 0 then
+        initialisation_routine()
+        current_phase := "scan"
+    endif
+
+    // Run while time not exceeded
+    if sim_clocktime < sim_end_time then
+        if current_phase == "scan" then
+            scanning_phase_single()
+            // Switch to timing only if no activity could start
+            if not activities_started then
+                current_phase := "time"
+            endif
+        else
+            // current_phase == "time"
+            if lib.length(future_event_list) > 0 then
+                timing_phase()
+            endif
+            current_phase := "scan"
+        endif
+    endif
+endrule

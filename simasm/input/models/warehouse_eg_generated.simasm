@@ -1,0 +1,828 @@
+// =============================================================================
+// Event Graph Model: warehouse_eg
+// =============================================================================
+// Warehouse Outbound Process using Event Graph formalism (Schruben 1983)
+// Algebraic specification: S = (F, C, T, G)
+// Based on warehouse_eg.simasm - simplified v2 format
+// Generated: 2026-01-05 19:06:44
+// Formalism: Event Graph (Schruben 1983)
+// Algorithm: Next-Event Time-Advance (Law 2013)
+
+// =============================================================================
+// IMPORT LIBRARIES
+// =============================================================================
+
+import Random as rnd
+import Stdlib as lib
+
+// =============================================================================
+// DOMAIN DECLARATIONS
+// =============================================================================
+
+// Base object domain
+domain Object
+
+// Event domain hierarchy - G = (V(G), E_s(G), E_c(G))
+domain Event <: Object
+domain CreateZA1Event <: Event
+domain CreateZA2Event <: Event
+domain CreateZB1Event <: Event
+domain CreateZB2Event <: Event
+domain AttemptPickAEvent <: Event
+domain AttemptPickBEvent <: Event
+domain AttemptLabelEvent <: Event
+domain AttemptScanEvent <: Event
+domain AttemptPackEvent <: Event
+domain AttemptReleaseEvent <: Event
+domain StartPickAEvent <: Event
+domain StartPickBEvent <: Event
+domain StartLabelEvent <: Event
+domain StartScanEvent <: Event
+domain StartPackEvent <: Event
+domain StartReleaseEvent <: Event
+domain FinishPickAEvent <: Event
+domain FinishPickBEvent <: Event
+domain FinishLabelEvent <: Event
+domain FinishScanEvent <: Event
+domain FinishPackEvent <: Event
+domain FinishReleaseEvent <: Event
+
+// =============================================================================
+// CONSTANT DECLARATIONS
+// =============================================================================
+
+const Q1_max: Nat  // Pick Zone A queue capacity
+const Q2_max: Nat  // Pick Zone B queue capacity
+const Q3_max: Nat  // Labelling queue capacity
+const Q4_max: Nat  // Scanning queue capacity
+const Q5_max: Nat  // Packing queue capacity
+const Q6_max: Nat  // Release queue capacity
+const S1_capacity: Nat  // Pick Zone A servers
+const S2_capacity: Nat  // Pick Zone B servers
+const S3_capacity: Nat  // Labelling servers
+const S4_capacity: Nat  // Scanning servers
+const S5_capacity: Nat  // Packing servers
+const S6_capacity: Nat  // Release servers
+const iat_c1_mean: Real  // Interarrival time mean for Zone A Type 1
+const iat_c2_mean: Real  // Interarrival time mean for Zone A Type 2
+const iat_c3_mean: Real  // Interarrival time mean for Zone B Type 1
+const iat_c4_mean: Real  // Interarrival time mean for Zone B Type 2
+const ist_s1_mean: Real  // Service time mean for Pick Zone A
+const ist_s2_mean: Real  // Service time mean for Pick Zone B
+const ist_s3_mean: Real  // Service time mean for Label
+const ist_s4_mean: Real  // Service time mean for Scan
+const ist_s5_mean: Real  // Service time mean for Pack
+const ist_s6_mean: Real  // Service time mean for Release
+const sim_end_time: Real  // Simulation end time
+
+// =============================================================================
+// DYNAMIC VARIABLE DECLARATIONS - STATES space
+// =============================================================================
+
+// Simulation clock and event list
+var sim_clocktime: Real
+var future_event_list: List<Event>
+var current_event: Event
+
+// State variables (STATES)
+var Q1: Nat  // Pick Zone A queue length
+var Q2: Nat  // Pick Zone B queue length
+var Q3: Nat  // Labelling queue length
+var Q4: Nat  // Scanning queue length
+var Q5: Nat  // Packing queue length
+var Q6: Nat  // Release queue length
+var S1: Nat  // Pick Zone A available servers
+var S2: Nat  // Pick Zone B available servers
+var S3: Nat  // Labelling available servers
+var S4: Nat  // Scanning available servers
+var S5: Nat  // Packing available servers
+var S6: Nat  // Release available servers
+var departures: Nat  // Total completed jobs
+
+// =============================================================================
+// RANDOM STREAM VARIABLES - Edge delay functions T
+// =============================================================================
+
+var T_c1: rnd.exponential(iat_c1_mean) as "creation_za1"
+var T_c2: rnd.exponential(iat_c2_mean) as "creation_za2"
+var T_c3: rnd.exponential(iat_c3_mean) as "creation_zb1"
+var T_c4: rnd.exponential(iat_c4_mean) as "creation_zb2"
+var T_s1: rnd.exponential(ist_s1_mean) as "service_pick_a"
+var T_s2: rnd.exponential(ist_s2_mean) as "service_pick_b"
+var T_s3: rnd.exponential(ist_s3_mean) as "service_label"
+var T_s4: rnd.exponential(ist_s4_mean) as "service_scan"
+var T_s5: rnd.exponential(ist_s5_mean) as "service_pack"
+var T_s6: rnd.exponential(ist_s6_mean) as "service_release"
+
+// =============================================================================
+// DYNAMIC FUNCTION DECLARATIONS
+// =============================================================================
+
+// Event properties
+dynamic function event_rule(e: Event): Rule
+dynamic function event_scheduled_time(e: Event): Real
+dynamic function event_parameters(e: Event): List<Any>
+
+// =============================================================================
+// DERIVED FUNCTIONS - Observables
+// =============================================================================
+
+derived function get_Q1(): Nat =  // Pick Zone A queue length
+    Q1
+
+derived function get_Q2(): Nat =  // Pick Zone B queue length
+    Q2
+
+derived function get_Q3(): Nat =  // Labelling queue length
+    Q3
+
+derived function get_Q4(): Nat =  // Scanning queue length
+    Q4
+
+derived function get_Q5(): Nat =  // Packing queue length
+    Q5
+
+derived function get_Q6(): Nat =  // Release queue length
+    Q6
+
+derived function get_S1_busy(): Nat =  // Pick Zone A busy servers
+    S1_capacity - S1
+
+derived function get_S2_busy(): Nat =  // Pick Zone B busy servers
+    S2_capacity - S2
+
+derived function get_S3_busy(): Nat =  // Labelling busy servers
+    S3_capacity - S3
+
+derived function get_S4_busy(): Nat =  // Scanning busy servers
+    S4_capacity - S4
+
+derived function get_S5_busy(): Nat =  // Packing busy servers
+    S5_capacity - S5
+
+derived function get_S6_busy(): Nat =  // Release busy servers
+    S6_capacity - S6
+
+derived function total_in_system(): Nat =  // Total jobs in system
+    Q1 + Q2 + Q3 + Q4 + Q5 + Q6 + (S1_capacity - S1) + (S2_capacity - S2) + (S3_capacity - S3) + (S4_capacity - S4) + (S5_capacity - S5) + (S6_capacity - S6)
+
+// =============================================================================
+// EVENT RULES - State transition functions F
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// CreateZA1 Event - f_CreateZA1
+// -----------------------------------------------------------------------------
+// Create Zone A Type 1 job - increment Q1
+
+rule event_create_za1() =
+    // State transition: Q1 := Q1 + 1
+    Q1 := Q1 + 1
+
+    // Process scheduling edges E_s(G)
+    // Self-loop: schedule next ZA1 creation
+    let scheduled_create_za1 = new CreateZA1Event
+    event_rule(scheduled_create_za1) := "event_create_za1"
+    event_scheduled_time(scheduled_create_za1) := sim_clocktime + T_c1
+    event_parameters(scheduled_create_za1) := []
+    lib.add(future_event_list, scheduled_create_za1)
+
+    // After creation, attempt to start service
+    if Q1 <= Q1_max then
+        let scheduled_attempt_pick_a = new AttemptPickAEvent
+        event_rule(scheduled_attempt_pick_a) := "event_attempt_pick_a"
+        event_scheduled_time(scheduled_attempt_pick_a) := sim_clocktime
+        event_parameters(scheduled_attempt_pick_a) := []
+        lib.add(future_event_list, scheduled_attempt_pick_a)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// CreateZA2 Event - f_CreateZA2
+// -----------------------------------------------------------------------------
+// Create Zone A Type 2 job - increment Q1
+
+rule event_create_za2() =
+    // State transition: Q1 := Q1 + 1
+    Q1 := Q1 + 1
+
+    // Process scheduling edges E_s(G)
+    // Self-loop: schedule next ZA2 creation
+    let scheduled_create_za2 = new CreateZA2Event
+    event_rule(scheduled_create_za2) := "event_create_za2"
+    event_scheduled_time(scheduled_create_za2) := sim_clocktime + T_c2
+    event_parameters(scheduled_create_za2) := []
+    lib.add(future_event_list, scheduled_create_za2)
+
+    // After creation, attempt to start service
+    if Q1 <= Q1_max then
+        let scheduled_attempt_pick_a = new AttemptPickAEvent
+        event_rule(scheduled_attempt_pick_a) := "event_attempt_pick_a"
+        event_scheduled_time(scheduled_attempt_pick_a) := sim_clocktime
+        event_parameters(scheduled_attempt_pick_a) := []
+        lib.add(future_event_list, scheduled_attempt_pick_a)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// CreateZB1 Event - f_CreateZB1
+// -----------------------------------------------------------------------------
+// Create Zone B Type 1 job - increment Q2
+
+rule event_create_zb1() =
+    // State transition: Q2 := Q2 + 1
+    Q2 := Q2 + 1
+
+    // Process scheduling edges E_s(G)
+    // Self-loop: schedule next ZB1 creation
+    let scheduled_create_zb1 = new CreateZB1Event
+    event_rule(scheduled_create_zb1) := "event_create_zb1"
+    event_scheduled_time(scheduled_create_zb1) := sim_clocktime + T_c3
+    event_parameters(scheduled_create_zb1) := []
+    lib.add(future_event_list, scheduled_create_zb1)
+
+    // After creation, attempt to start service
+    if Q2 <= Q2_max then
+        let scheduled_attempt_pick_b = new AttemptPickBEvent
+        event_rule(scheduled_attempt_pick_b) := "event_attempt_pick_b"
+        event_scheduled_time(scheduled_attempt_pick_b) := sim_clocktime
+        event_parameters(scheduled_attempt_pick_b) := []
+        lib.add(future_event_list, scheduled_attempt_pick_b)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// CreateZB2 Event - f_CreateZB2
+// -----------------------------------------------------------------------------
+// Create Zone B Type 2 job - increment Q2
+
+rule event_create_zb2() =
+    // State transition: Q2 := Q2 + 1
+    Q2 := Q2 + 1
+
+    // Process scheduling edges E_s(G)
+    // Self-loop: schedule next ZB2 creation
+    let scheduled_create_zb2 = new CreateZB2Event
+    event_rule(scheduled_create_zb2) := "event_create_zb2"
+    event_scheduled_time(scheduled_create_zb2) := sim_clocktime + T_c4
+    event_parameters(scheduled_create_zb2) := []
+    lib.add(future_event_list, scheduled_create_zb2)
+
+    // After creation, attempt to start service
+    if Q2 <= Q2_max then
+        let scheduled_attempt_pick_b = new AttemptPickBEvent
+        event_rule(scheduled_attempt_pick_b) := "event_attempt_pick_b"
+        event_scheduled_time(scheduled_attempt_pick_b) := sim_clocktime
+        event_parameters(scheduled_attempt_pick_b) := []
+        lib.add(future_event_list, scheduled_attempt_pick_b)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptPickA Event - f_AttemptPickA
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start Pick Zone A service
+
+rule event_attempt_pick_a() =
+    // Process scheduling edges E_s(G)
+    // Start if server available and job waiting
+    if S1 > 0 and Q1 > 0 then
+        let scheduled_start_pick_a = new StartPickAEvent
+        event_rule(scheduled_start_pick_a) := "event_start_pick_a"
+        event_scheduled_time(scheduled_start_pick_a) := sim_clocktime
+        event_parameters(scheduled_start_pick_a) := []
+        lib.add(future_event_list, scheduled_start_pick_a)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptPickB Event - f_AttemptPickB
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start Pick Zone B service
+
+rule event_attempt_pick_b() =
+    // Process scheduling edges E_s(G)
+    // Start if server available and job waiting
+    if S2 > 0 and Q2 > 0 then
+        let scheduled_start_pick_b = new StartPickBEvent
+        event_rule(scheduled_start_pick_b) := "event_start_pick_b"
+        event_scheduled_time(scheduled_start_pick_b) := sim_clocktime
+        event_parameters(scheduled_start_pick_b) := []
+        lib.add(future_event_list, scheduled_start_pick_b)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptLabel Event - f_AttemptLabel
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start Label service
+
+rule event_attempt_label() =
+    // Process scheduling edges E_s(G)
+    // Start if server available and job waiting
+    if S3 > 0 and Q3 > 0 then
+        let scheduled_start_label = new StartLabelEvent
+        event_rule(scheduled_start_label) := "event_start_label"
+        event_scheduled_time(scheduled_start_label) := sim_clocktime
+        event_parameters(scheduled_start_label) := []
+        lib.add(future_event_list, scheduled_start_label)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptScan Event - f_AttemptScan
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start Scan service
+
+rule event_attempt_scan() =
+    // Process scheduling edges E_s(G)
+    // Start if server available and job waiting
+    if S4 > 0 and Q4 > 0 then
+        let scheduled_start_scan = new StartScanEvent
+        event_rule(scheduled_start_scan) := "event_start_scan"
+        event_scheduled_time(scheduled_start_scan) := sim_clocktime
+        event_parameters(scheduled_start_scan) := []
+        lib.add(future_event_list, scheduled_start_scan)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptPack Event - f_AttemptPack
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start Pack service
+
+rule event_attempt_pack() =
+    // Process scheduling edges E_s(G)
+    // Start if server available and job waiting
+    if S5 > 0 and Q5 > 0 then
+        let scheduled_start_pack = new StartPackEvent
+        event_rule(scheduled_start_pack) := "event_start_pack"
+        event_scheduled_time(scheduled_start_pack) := sim_clocktime
+        event_parameters(scheduled_start_pack) := []
+        lib.add(future_event_list, scheduled_start_pack)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// AttemptRelease Event - f_AttemptRelease
+// -----------------------------------------------------------------------------
+// Decision node - attempt to start Release service
+
+rule event_attempt_release() =
+    // Process scheduling edges E_s(G)
+    // Start if server available and job waiting
+    if S6 > 0 and Q6 > 0 then
+        let scheduled_start_release = new StartReleaseEvent
+        event_rule(scheduled_start_release) := "event_start_release"
+        event_scheduled_time(scheduled_start_release) := sim_clocktime
+        event_parameters(scheduled_start_release) := []
+        lib.add(future_event_list, scheduled_start_release)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// StartPickA Event - f_StartPickA
+// -----------------------------------------------------------------------------
+// Start Pick Zone A service - decrement Q1 and S1
+
+rule event_start_pick_a() =
+    // State transition: Q1 := Q1 - 1; S1 := S1 - 1
+    Q1 := Q1 - 1
+    S1 := S1 - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish_pick_a = new FinishPickAEvent
+    event_rule(scheduled_finish_pick_a) := "event_finish_pick_a"
+    event_scheduled_time(scheduled_finish_pick_a) := sim_clocktime + T_s1
+    event_parameters(scheduled_finish_pick_a) := []
+    lib.add(future_event_list, scheduled_finish_pick_a)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// StartPickB Event - f_StartPickB
+// -----------------------------------------------------------------------------
+// Start Pick Zone B service - decrement Q2 and S2
+
+rule event_start_pick_b() =
+    // State transition: Q2 := Q2 - 1; S2 := S2 - 1
+    Q2 := Q2 - 1
+    S2 := S2 - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish_pick_b = new FinishPickBEvent
+    event_rule(scheduled_finish_pick_b) := "event_finish_pick_b"
+    event_scheduled_time(scheduled_finish_pick_b) := sim_clocktime + T_s2
+    event_parameters(scheduled_finish_pick_b) := []
+    lib.add(future_event_list, scheduled_finish_pick_b)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// StartLabel Event - f_StartLabel
+// -----------------------------------------------------------------------------
+// Start Label service - decrement Q3 and S3
+
+rule event_start_label() =
+    // State transition: Q3 := Q3 - 1; S3 := S3 - 1
+    Q3 := Q3 - 1
+    S3 := S3 - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish_label = new FinishLabelEvent
+    event_rule(scheduled_finish_label) := "event_finish_label"
+    event_scheduled_time(scheduled_finish_label) := sim_clocktime + T_s3
+    event_parameters(scheduled_finish_label) := []
+    lib.add(future_event_list, scheduled_finish_label)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// StartScan Event - f_StartScan
+// -----------------------------------------------------------------------------
+// Start Scan service - decrement Q4 and S4
+
+rule event_start_scan() =
+    // State transition: Q4 := Q4 - 1; S4 := S4 - 1
+    Q4 := Q4 - 1
+    S4 := S4 - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish_scan = new FinishScanEvent
+    event_rule(scheduled_finish_scan) := "event_finish_scan"
+    event_scheduled_time(scheduled_finish_scan) := sim_clocktime + T_s4
+    event_parameters(scheduled_finish_scan) := []
+    lib.add(future_event_list, scheduled_finish_scan)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// StartPack Event - f_StartPack
+// -----------------------------------------------------------------------------
+// Start Pack service - decrement Q5 and S5
+
+rule event_start_pack() =
+    // State transition: Q5 := Q5 - 1; S5 := S5 - 1
+    Q5 := Q5 - 1
+    S5 := S5 - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish_pack = new FinishPackEvent
+    event_rule(scheduled_finish_pack) := "event_finish_pack"
+    event_scheduled_time(scheduled_finish_pack) := sim_clocktime + T_s5
+    event_parameters(scheduled_finish_pack) := []
+    lib.add(future_event_list, scheduled_finish_pack)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// StartRelease Event - f_StartRelease
+// -----------------------------------------------------------------------------
+// Start Release service - decrement Q6 and S6
+
+rule event_start_release() =
+    // State transition: Q6 := Q6 - 1; S6 := S6 - 1
+    Q6 := Q6 - 1
+    S6 := S6 - 1
+
+    // Process scheduling edges E_s(G)
+    // Schedule service completion
+    let scheduled_finish_release = new FinishReleaseEvent
+    event_rule(scheduled_finish_release) := "event_finish_release"
+    event_scheduled_time(scheduled_finish_release) := sim_clocktime + T_s6
+    event_parameters(scheduled_finish_release) := []
+    lib.add(future_event_list, scheduled_finish_release)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// FinishPickA Event - f_FinishPickA
+// -----------------------------------------------------------------------------
+// Finish Pick Zone A - release server, job to Label queue
+
+rule event_finish_pick_a() =
+    // State transition: S1 := S1 + 1; Q3 := Q3 + 1
+    S1 := S1 + 1
+    Q3 := Q3 + 1
+
+    // Process scheduling edges E_s(G)
+    // Check for more work in queue
+    if Q1 > 0 then
+        let scheduled_attempt_pick_a = new AttemptPickAEvent
+        event_rule(scheduled_attempt_pick_a) := "event_attempt_pick_a"
+        event_scheduled_time(scheduled_attempt_pick_a) := sim_clocktime
+        event_parameters(scheduled_attempt_pick_a) := []
+        lib.add(future_event_list, scheduled_attempt_pick_a)
+    endif
+
+    // Flow job to Label
+    if Q3 <= Q3_max then
+        let scheduled_attempt_label = new AttemptLabelEvent
+        event_rule(scheduled_attempt_label) := "event_attempt_label"
+        event_scheduled_time(scheduled_attempt_label) := sim_clocktime
+        event_parameters(scheduled_attempt_label) := []
+        lib.add(future_event_list, scheduled_attempt_label)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// FinishPickB Event - f_FinishPickB
+// -----------------------------------------------------------------------------
+// Finish Pick Zone B - release server, job to Label queue
+
+rule event_finish_pick_b() =
+    // State transition: S2 := S2 + 1; Q3 := Q3 + 1
+    S2 := S2 + 1
+    Q3 := Q3 + 1
+
+    // Process scheduling edges E_s(G)
+    // Check for more work in queue
+    if Q2 > 0 then
+        let scheduled_attempt_pick_b = new AttemptPickBEvent
+        event_rule(scheduled_attempt_pick_b) := "event_attempt_pick_b"
+        event_scheduled_time(scheduled_attempt_pick_b) := sim_clocktime
+        event_parameters(scheduled_attempt_pick_b) := []
+        lib.add(future_event_list, scheduled_attempt_pick_b)
+    endif
+
+    // Flow job to Label
+    if Q3 <= Q3_max then
+        let scheduled_attempt_label = new AttemptLabelEvent
+        event_rule(scheduled_attempt_label) := "event_attempt_label"
+        event_scheduled_time(scheduled_attempt_label) := sim_clocktime
+        event_parameters(scheduled_attempt_label) := []
+        lib.add(future_event_list, scheduled_attempt_label)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// FinishLabel Event - f_FinishLabel
+// -----------------------------------------------------------------------------
+// Finish Label - release server, job to Scan queue
+
+rule event_finish_label() =
+    // State transition: S3 := S3 + 1; Q4 := Q4 + 1
+    S3 := S3 + 1
+    Q4 := Q4 + 1
+
+    // Process scheduling edges E_s(G)
+    // Check for more work in queue
+    if Q3 > 0 then
+        let scheduled_attempt_label = new AttemptLabelEvent
+        event_rule(scheduled_attempt_label) := "event_attempt_label"
+        event_scheduled_time(scheduled_attempt_label) := sim_clocktime
+        event_parameters(scheduled_attempt_label) := []
+        lib.add(future_event_list, scheduled_attempt_label)
+    endif
+
+    // Flow job to Scan
+    if Q4 <= Q4_max then
+        let scheduled_attempt_scan = new AttemptScanEvent
+        event_rule(scheduled_attempt_scan) := "event_attempt_scan"
+        event_scheduled_time(scheduled_attempt_scan) := sim_clocktime
+        event_parameters(scheduled_attempt_scan) := []
+        lib.add(future_event_list, scheduled_attempt_scan)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// FinishScan Event - f_FinishScan
+// -----------------------------------------------------------------------------
+// Finish Scan - release server, job to Pack queue
+
+rule event_finish_scan() =
+    // State transition: S4 := S4 + 1; Q5 := Q5 + 1
+    S4 := S4 + 1
+    Q5 := Q5 + 1
+
+    // Process scheduling edges E_s(G)
+    // Check for more work in queue
+    if Q4 > 0 then
+        let scheduled_attempt_scan = new AttemptScanEvent
+        event_rule(scheduled_attempt_scan) := "event_attempt_scan"
+        event_scheduled_time(scheduled_attempt_scan) := sim_clocktime
+        event_parameters(scheduled_attempt_scan) := []
+        lib.add(future_event_list, scheduled_attempt_scan)
+    endif
+
+    // Flow job to Pack
+    if Q5 <= Q5_max then
+        let scheduled_attempt_pack = new AttemptPackEvent
+        event_rule(scheduled_attempt_pack) := "event_attempt_pack"
+        event_scheduled_time(scheduled_attempt_pack) := sim_clocktime
+        event_parameters(scheduled_attempt_pack) := []
+        lib.add(future_event_list, scheduled_attempt_pack)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// FinishPack Event - f_FinishPack
+// -----------------------------------------------------------------------------
+// Finish Pack - release server, job to Release queue
+
+rule event_finish_pack() =
+    // State transition: S5 := S5 + 1; Q6 := Q6 + 1
+    S5 := S5 + 1
+    Q6 := Q6 + 1
+
+    // Process scheduling edges E_s(G)
+    // Check for more work in queue
+    if Q5 > 0 then
+        let scheduled_attempt_pack = new AttemptPackEvent
+        event_rule(scheduled_attempt_pack) := "event_attempt_pack"
+        event_scheduled_time(scheduled_attempt_pack) := sim_clocktime
+        event_parameters(scheduled_attempt_pack) := []
+        lib.add(future_event_list, scheduled_attempt_pack)
+    endif
+
+    // Flow job to Release
+    if Q6 <= Q6_max then
+        let scheduled_attempt_release = new AttemptReleaseEvent
+        event_rule(scheduled_attempt_release) := "event_attempt_release"
+        event_scheduled_time(scheduled_attempt_release) := sim_clocktime
+        event_parameters(scheduled_attempt_release) := []
+        lib.add(future_event_list, scheduled_attempt_release)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// FinishRelease Event - f_FinishRelease
+// -----------------------------------------------------------------------------
+// Finish Release - release server, job exits system
+
+rule event_finish_release() =
+    // State transition: S6 := S6 + 1; departures := departures + 1
+    S6 := S6 + 1
+    departures := departures + 1
+
+    // Process scheduling edges E_s(G)
+    // Check for more work in queue
+    if Q6 > 0 then
+        let scheduled_attempt_release = new AttemptReleaseEvent
+        event_rule(scheduled_attempt_release) := "event_attempt_release"
+        event_scheduled_time(scheduled_attempt_release) := sim_clocktime
+        event_parameters(scheduled_attempt_release) := []
+        lib.add(future_event_list, scheduled_attempt_release)
+    endif
+
+endrule
+
+// =============================================================================
+// NEXT-EVENT TIME-ADVANCE ALGORITHM
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Initialization Routine
+// -----------------------------------------------------------------------------
+// Set STATE := STATE_0, FEL := FEL_0
+
+rule initialisation_routine() =
+    // Schedule initial CreateZA1 event
+    let init_event_0 = new CreateZA1Event
+    event_rule(init_event_0) := "event_create_za1"
+    event_scheduled_time(init_event_0) := sim_clocktime + T_c1
+    event_parameters(init_event_0) := []
+    lib.add(future_event_list, init_event_0)
+
+    // Schedule initial CreateZA2 event
+    let init_event_1 = new CreateZA2Event
+    event_rule(init_event_1) := "event_create_za2"
+    event_scheduled_time(init_event_1) := sim_clocktime + T_c2
+    event_parameters(init_event_1) := []
+    lib.add(future_event_list, init_event_1)
+
+    // Schedule initial CreateZB1 event
+    let init_event_2 = new CreateZB1Event
+    event_rule(init_event_2) := "event_create_zb1"
+    event_scheduled_time(init_event_2) := sim_clocktime + T_c3
+    event_parameters(init_event_2) := []
+    lib.add(future_event_list, init_event_2)
+
+    // Schedule initial CreateZB2 event
+    let init_event_3 = new CreateZB2Event
+    event_rule(init_event_3) := "event_create_zb2"
+    event_scheduled_time(init_event_3) := sim_clocktime + T_c4
+    event_parameters(init_event_3) := []
+    lib.add(future_event_list, init_event_3)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Timing Routine
+// -----------------------------------------------------------------------------
+// Pop earliest event from FEL, advance clock to event time
+
+rule timing_routine() =
+    // Sort FEL by (scheduled_time, -priority)
+    lib.sort(future_event_list, "event_scheduled_time")
+
+    if lib.length(future_event_list) > 0 then
+        // Remove next event from FEL
+        let next_event = lib.pop(future_event_list)
+
+        // Advance simulation clock
+        sim_clocktime := event_scheduled_time(next_event)
+
+        // Store for event routine dispatch
+        current_event := next_event
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// Event Routine
+// -----------------------------------------------------------------------------
+// Dispatch to event-specific rule using lib.apply_rule
+
+rule event_routine() =
+    let r = event_rule(current_event)
+    let params = event_parameters(current_event)
+    lib.apply_rule(r, params)
+endrule
+
+// =============================================================================
+// INITIAL STATE - STATE_0
+// =============================================================================
+
+init:
+    // Parameters
+    Q1_max := 30
+    Q2_max := 20
+    Q3_max := 50
+    Q4_max := 20
+    Q5_max := 30
+    Q6_max := 20
+    S1_capacity := 4
+    S2_capacity := 2
+    S3_capacity := 3
+    S4_capacity := 1
+    S5_capacity := 3
+    S6_capacity := 2
+    iat_c1_mean := 2.0
+    iat_c2_mean := 3.0
+    iat_c3_mean := 4.0
+    iat_c4_mean := 5.0
+    ist_s1_mean := 3.0
+    ist_s2_mean := 4.0
+    ist_s3_mean := 1.5
+    ist_s4_mean := 0.5
+    ist_s5_mean := 2.0
+    ist_s6_mean := 1.0
+    sim_end_time := 1000.0
+
+    // Simulation state
+    sim_clocktime := 0.0
+    future_event_list := []
+
+    // Initial state variables STATE_0
+    Q1 := 0
+    Q2 := 0
+    Q3 := 0
+    Q4 := 0
+    Q5 := 0
+    Q6 := 0
+    S1 := 4
+    S2 := 2
+    S3 := 3
+    S4 := 1
+    S5 := 3
+    S6 := 2
+    departures := 0
+endinit
+
+// =============================================================================
+// MAIN RULE
+// =============================================================================
+
+main rule main =
+    // Initialize on first step
+    if sim_clocktime == 0.0 and lib.length(future_event_list) == 0 then
+        initialisation_routine()
+    endif
+
+    // Run while FEL not empty and time not exceeded
+    if lib.length(future_event_list) > 0 and sim_clocktime < sim_end_time then
+        timing_routine()
+        event_routine()
+    endif
+endrule
+
