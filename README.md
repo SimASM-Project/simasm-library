@@ -181,6 +181,68 @@ verification EG_ACD_Equivalence:
 endverification
 ```
 
+## Reproducing Paper Results
+
+SimASM includes a reproducibility module for the SMC paper:
+
+> Yeo, K. S. S., & Li, H. (2025). Semantic Model Complexity for Event Graph
+> Discrete-Event Simulation Models via Abstract State Machines. *SIMULTECH 2025*.
+
+### Setup
+
+```bash
+git clone https://github.com/SimASM-Project/simasm.git
+cd simasm
+pip install -e .
+```
+
+### Experiment 1: 51-Model LOOCV Validation (Section 5)
+
+```bash
+simasm-reproduce loocv
+```
+
+Runs the full 51-model benchmark (~5 min). Measures simulation runtimes live
+(30 replications each), computes SMC/CC/LOC/KC, and performs leave-one-out
+cross-validation on three pools (27 homogeneous, 24 heterogeneous, 51 combined).
+
+### Experiment 2: Warehouse Case Study (Section 6)
+
+```bash
+simasm-reproduce warehouse
+```
+
+Trains log-log regression on the 51-model pool and predicts runtime for an
+industrial warehouse model. Reports absolute percentage errors and 95%
+prediction intervals for all four metrics.
+
+### Run Both
+
+```bash
+simasm-reproduce all
+```
+
+### Expected Output
+
+Runtimes will vary across machines, but the relative rankings (Q², sign test
+results) should be consistent with the paper:
+- SMC Q² ≈ 0.95 on the combined 51-model pool
+- SMC sign test: 51/51 wins vs CC/LOC/KC (p < 0.0001)
+- Warehouse: only SMC's 95% prediction interval contains the actual runtime
+
+Use `-v` for verbose per-model output:
+```bash
+simasm-reproduce loocv -v
+```
+
+### Benchmark Models
+
+The 51 models are included in `simasm/models/` (JSON) and `simasm/models_simasm/`
+(.simasm translations):
+- **27 homogeneous**: tandem, fork-join, feedback × 9 sizes (1–20 stations)
+- **24 heterogeneous**: 3 topologies × 2 sizes × 2 IST patterns × 2 IAT levels
+- **1 warehouse**: 6-station industrial warehouse (out-of-sample case study)
+
 ## Related Work and ASM Frameworks
 
 SimASM builds on the foundation of Abstract State Machines (ASM) introduced by

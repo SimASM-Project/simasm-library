@@ -1,0 +1,984 @@
+{
+  "model_name": "feedback_10_hetbottle_iat30_eg",
+  "description": "Feedback 10-Queue using Event Graph formalism - 10 stations in tandem with 50% feedback",
+  "entities": {
+    "Load": {
+      "name": "Load",
+      "parent": "Object",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time_1": "Real",
+        "service_start_time_2": "Real",
+        "service_start_time_3": "Real",
+        "service_start_time_4": "Real",
+        "service_start_time_5": "Real",
+        "service_start_time_6": "Real",
+        "service_start_time_7": "Real",
+        "service_start_time_8": "Real",
+        "service_start_time_9": "Real",
+        "service_start_time_10": "Real",
+        "departure_time": "Real"
+      }
+    }
+  },
+  "parameters": {
+    "service_capacity": {
+      "type": "Nat",
+      "value": 5,
+      "description": "Number of servers per station"
+    },
+    "iat_mean": {
+      "type": "Real",
+      "value": 30.0,
+      "description": "Inter-arrival time mean"
+    },
+    "ist_mean": {
+      "type": "Real",
+      "value": 6.7464,
+      "description": "Service time mean per station"
+    },
+    "feedback_prob": {
+      "type": "Real",
+      "value": 0.5,
+      "description": "Probability of feedback to station 1"
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 10000.0,
+      "description": "Simulation end time"
+    },
+    "ist_mean_1": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 1"
+    },
+    "ist_mean_2": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 2"
+    },
+    "ist_mean_3": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 3"
+    },
+    "ist_mean_4": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 4"
+    },
+    "ist_mean_5": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 5"
+    },
+    "ist_mean_6": {
+      "type": "Real",
+      "value": 100.0,
+      "description": "Service time mean at station 6"
+    },
+    "ist_mean_7": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 7"
+    },
+    "ist_mean_8": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 8"
+    },
+    "ist_mean_9": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 9"
+    },
+    "ist_mean_10": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 10"
+    }
+  },
+  "state_variables": {
+    "queue_count_1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 1"
+    },
+    "server_count_1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 1"
+    },
+    "queue_count_2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 2"
+    },
+    "server_count_2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 2"
+    },
+    "queue_count_3": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 3"
+    },
+    "server_count_3": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 3"
+    },
+    "queue_count_4": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 4"
+    },
+    "server_count_4": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 4"
+    },
+    "queue_count_5": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 5"
+    },
+    "server_count_5": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 5"
+    },
+    "queue_count_6": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 6"
+    },
+    "server_count_6": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 6"
+    },
+    "queue_count_7": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 7"
+    },
+    "server_count_7": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 7"
+    },
+    "queue_count_8": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 8"
+    },
+    "server_count_8": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 8"
+    },
+    "queue_count_9": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 9"
+    },
+    "server_count_9": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 9"
+    },
+    "queue_count_10": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 10"
+    },
+    "server_count_10": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 10"
+    },
+    "load_id_counter": {
+      "type": "Nat",
+      "initial": 0
+    },
+    "departure_count": {
+      "type": "Nat",
+      "initial": 0
+    }
+  },
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_mean"
+      },
+      "stream_name": "arrivals"
+    },
+    "service_time_1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_1"
+      },
+      "stream_name": "service_1"
+    },
+    "service_time_2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_2"
+      },
+      "stream_name": "service_2"
+    },
+    "service_time_3": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_3"
+      },
+      "stream_name": "service_3"
+    },
+    "service_time_4": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_4"
+      },
+      "stream_name": "service_4"
+    },
+    "service_time_5": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_5"
+      },
+      "stream_name": "service_5"
+    },
+    "service_time_6": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_6"
+      },
+      "stream_name": "service_6"
+    },
+    "service_time_7": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_7"
+      },
+      "stream_name": "service_7"
+    },
+    "service_time_8": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_8"
+      },
+      "stream_name": "service_8"
+    },
+    "service_time_9": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_9"
+      },
+      "stream_name": "service_9"
+    },
+    "service_time_10": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_10"
+      },
+      "stream_name": "service_10"
+    }
+  },
+  "vertices": [
+    {
+      "name": "Arrive",
+      "description": "Customer arrival event",
+      "state_change": "load_id_counter := load_id_counter + 1; queue_count_1 := queue_count_1 + 1"
+    },
+    {
+      "name": "Start_1",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 1",
+      "state_change": "queue_count_1 := queue_count_1 - 1; server_count_1 := server_count_1 + 1"
+    },
+    {
+      "name": "Finish_1",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 1",
+      "state_change": "server_count_1 := server_count_1 - 1; queue_count_2 := queue_count_2 + 1"
+    },
+    {
+      "name": "Start_2",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 2",
+      "state_change": "queue_count_2 := queue_count_2 - 1; server_count_2 := server_count_2 + 1"
+    },
+    {
+      "name": "Finish_2",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 2",
+      "state_change": "server_count_2 := server_count_2 - 1; queue_count_3 := queue_count_3 + 1"
+    },
+    {
+      "name": "Start_3",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 3",
+      "state_change": "queue_count_3 := queue_count_3 - 1; server_count_3 := server_count_3 + 1"
+    },
+    {
+      "name": "Finish_3",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 3",
+      "state_change": "server_count_3 := server_count_3 - 1; queue_count_4 := queue_count_4 + 1"
+    },
+    {
+      "name": "Start_4",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 4",
+      "state_change": "queue_count_4 := queue_count_4 - 1; server_count_4 := server_count_4 + 1"
+    },
+    {
+      "name": "Finish_4",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 4",
+      "state_change": "server_count_4 := server_count_4 - 1; queue_count_5 := queue_count_5 + 1"
+    },
+    {
+      "name": "Start_5",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 5",
+      "state_change": "queue_count_5 := queue_count_5 - 1; server_count_5 := server_count_5 + 1"
+    },
+    {
+      "name": "Finish_5",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 5",
+      "state_change": "server_count_5 := server_count_5 - 1; queue_count_6 := queue_count_6 + 1"
+    },
+    {
+      "name": "Start_6",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 6",
+      "state_change": "queue_count_6 := queue_count_6 - 1; server_count_6 := server_count_6 + 1"
+    },
+    {
+      "name": "Finish_6",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 6",
+      "state_change": "server_count_6 := server_count_6 - 1; queue_count_7 := queue_count_7 + 1"
+    },
+    {
+      "name": "Start_7",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 7",
+      "state_change": "queue_count_7 := queue_count_7 - 1; server_count_7 := server_count_7 + 1"
+    },
+    {
+      "name": "Finish_7",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 7",
+      "state_change": "server_count_7 := server_count_7 - 1; queue_count_8 := queue_count_8 + 1"
+    },
+    {
+      "name": "Start_8",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 8",
+      "state_change": "queue_count_8 := queue_count_8 - 1; server_count_8 := server_count_8 + 1"
+    },
+    {
+      "name": "Finish_8",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 8",
+      "state_change": "server_count_8 := server_count_8 - 1; queue_count_9 := queue_count_9 + 1"
+    },
+    {
+      "name": "Start_9",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 9",
+      "state_change": "queue_count_9 := queue_count_9 - 1; server_count_9 := server_count_9 + 1"
+    },
+    {
+      "name": "Finish_9",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 9",
+      "state_change": "server_count_9 := server_count_9 - 1; queue_count_10 := queue_count_10 + 1"
+    },
+    {
+      "name": "Start_10",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 10",
+      "state_change": "queue_count_10 := queue_count_10 - 1; server_count_10 := server_count_10 + 1"
+    },
+    {
+      "name": "Finish_10",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 10",
+      "state_change": "server_count_10 := server_count_10 - 1"
+    },
+    {
+      "name": "Attempt_To_Depart",
+      "description": "Probabilistic departure/feedback decision",
+      "state_change": ""
+    },
+    {
+      "name": "Depart",
+      "description": "Customer departs the system",
+      "state_change": "departure_count := departure_count + 1"
+    }
+  ],
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "interarrival_time",
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Arrive",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "server_count_1 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_1",
+      "to": "Finish_1",
+      "delay": "service_time_1",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_1",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "queue_count_1 > 0 and server_count_1 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_1",
+      "to": "Start_2",
+      "delay": 0,
+      "condition": "server_count_2 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_2",
+      "to": "Finish_2",
+      "delay": "service_time_2",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_2",
+      "to": "Start_2",
+      "delay": 0,
+      "condition": "queue_count_2 > 0 and server_count_2 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_2",
+      "to": "Start_3",
+      "delay": 0,
+      "condition": "server_count_3 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_3",
+      "to": "Finish_3",
+      "delay": "service_time_3",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_3",
+      "to": "Start_3",
+      "delay": 0,
+      "condition": "queue_count_3 > 0 and server_count_3 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_3",
+      "to": "Start_4",
+      "delay": 0,
+      "condition": "server_count_4 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_4",
+      "to": "Finish_4",
+      "delay": "service_time_4",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_4",
+      "to": "Start_4",
+      "delay": 0,
+      "condition": "queue_count_4 > 0 and server_count_4 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_4",
+      "to": "Start_5",
+      "delay": 0,
+      "condition": "server_count_5 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_5",
+      "to": "Finish_5",
+      "delay": "service_time_5",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_5",
+      "to": "Start_5",
+      "delay": 0,
+      "condition": "queue_count_5 > 0 and server_count_5 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_5",
+      "to": "Start_6",
+      "delay": 0,
+      "condition": "server_count_6 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_6",
+      "to": "Finish_6",
+      "delay": "service_time_6",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_6",
+      "to": "Start_6",
+      "delay": 0,
+      "condition": "queue_count_6 > 0 and server_count_6 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_6",
+      "to": "Start_7",
+      "delay": 0,
+      "condition": "server_count_7 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_7",
+      "to": "Finish_7",
+      "delay": "service_time_7",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_7",
+      "to": "Start_7",
+      "delay": 0,
+      "condition": "queue_count_7 > 0 and server_count_7 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_7",
+      "to": "Start_8",
+      "delay": 0,
+      "condition": "server_count_8 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_8",
+      "to": "Finish_8",
+      "delay": "service_time_8",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_8",
+      "to": "Start_8",
+      "delay": 0,
+      "condition": "queue_count_8 > 0 and server_count_8 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_8",
+      "to": "Start_9",
+      "delay": 0,
+      "condition": "server_count_9 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_9",
+      "to": "Finish_9",
+      "delay": "service_time_9",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_9",
+      "to": "Start_9",
+      "delay": 0,
+      "condition": "queue_count_9 > 0 and server_count_9 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_9",
+      "to": "Start_10",
+      "delay": 0,
+      "condition": "server_count_10 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_10",
+      "to": "Finish_10",
+      "delay": "service_time_10",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_10",
+      "to": "Start_10",
+      "delay": 0,
+      "condition": "queue_count_10 > 0 and server_count_10 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_10",
+      "to": "Attempt_To_Depart",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Attempt_To_Depart",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "feedback",
+      "priority": 0,
+      "feedback_action": "queue_count_1 := queue_count_1 + 1"
+    },
+    {
+      "from": "Attempt_To_Depart",
+      "to": "Depart",
+      "delay": 0,
+      "condition": "not_feedback",
+      "priority": 0,
+      "depart_action": "departure_count := departure_count + 1"
+    }
+  ],
+  "cancelling_edges": [],
+  "initial_events": [
+    {
+      "event": "Arrive",
+      "time": "interarrival_time"
+    }
+  ],
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+  "observables": {
+    "queue_count_1": {
+      "name": "queue_count_1",
+      "expression": "queue_count_1",
+      "description": "Number in queue at station 1"
+    },
+    "server_count_1": {
+      "name": "server_count_1",
+      "expression": "server_count_1",
+      "description": "Number of busy servers at station 1"
+    },
+    "queue_count_2": {
+      "name": "queue_count_2",
+      "expression": "queue_count_2",
+      "description": "Number in queue at station 2"
+    },
+    "server_count_2": {
+      "name": "server_count_2",
+      "expression": "server_count_2",
+      "description": "Number of busy servers at station 2"
+    },
+    "queue_count_3": {
+      "name": "queue_count_3",
+      "expression": "queue_count_3",
+      "description": "Number in queue at station 3"
+    },
+    "server_count_3": {
+      "name": "server_count_3",
+      "expression": "server_count_3",
+      "description": "Number of busy servers at station 3"
+    },
+    "queue_count_4": {
+      "name": "queue_count_4",
+      "expression": "queue_count_4",
+      "description": "Number in queue at station 4"
+    },
+    "server_count_4": {
+      "name": "server_count_4",
+      "expression": "server_count_4",
+      "description": "Number of busy servers at station 4"
+    },
+    "queue_count_5": {
+      "name": "queue_count_5",
+      "expression": "queue_count_5",
+      "description": "Number in queue at station 5"
+    },
+    "server_count_5": {
+      "name": "server_count_5",
+      "expression": "server_count_5",
+      "description": "Number of busy servers at station 5"
+    },
+    "queue_count_6": {
+      "name": "queue_count_6",
+      "expression": "queue_count_6",
+      "description": "Number in queue at station 6"
+    },
+    "server_count_6": {
+      "name": "server_count_6",
+      "expression": "server_count_6",
+      "description": "Number of busy servers at station 6"
+    },
+    "queue_count_7": {
+      "name": "queue_count_7",
+      "expression": "queue_count_7",
+      "description": "Number in queue at station 7"
+    },
+    "server_count_7": {
+      "name": "server_count_7",
+      "expression": "server_count_7",
+      "description": "Number of busy servers at station 7"
+    },
+    "queue_count_8": {
+      "name": "queue_count_8",
+      "expression": "queue_count_8",
+      "description": "Number in queue at station 8"
+    },
+    "server_count_8": {
+      "name": "server_count_8",
+      "expression": "server_count_8",
+      "description": "Number of busy servers at station 8"
+    },
+    "queue_count_9": {
+      "name": "queue_count_9",
+      "expression": "queue_count_9",
+      "description": "Number in queue at station 9"
+    },
+    "server_count_9": {
+      "name": "server_count_9",
+      "expression": "server_count_9",
+      "description": "Number of busy servers at station 9"
+    },
+    "queue_count_10": {
+      "name": "queue_count_10",
+      "expression": "queue_count_10",
+      "description": "Number in queue at station 10"
+    },
+    "server_count_10": {
+      "name": "server_count_10",
+      "expression": "server_count_10",
+      "description": "Number of busy servers at station 10"
+    },
+    "in_system": {
+      "name": "in_system",
+      "expression": "queue_count_1 + server_count_1 + queue_count_2 + server_count_2 + queue_count_3 + server_count_3 + queue_count_4 + server_count_4 + queue_count_5 + server_count_5 + queue_count_6 + server_count_6 + queue_count_7 + server_count_7 + queue_count_8 + server_count_8 + queue_count_9 + server_count_9 + queue_count_10 + server_count_10",
+      "description": "Total in system"
+    },
+    "L_q_total": {
+      "name": "L_q_total",
+      "expression": "queue_count_1 + queue_count_2 + queue_count_3 + queue_count_4 + queue_count_5 + queue_count_6 + queue_count_7 + queue_count_8 + queue_count_9 + queue_count_10",
+      "description": "Total queue length"
+    },
+    "departure_count": {
+      "name": "departure_count",
+      "expression": "departure_count",
+      "description": "Total departures"
+    }
+  },
+  "statistics": [
+    {
+      "name": "L_q_total",
+      "type": "time_average",
+      "observable": "L_q_total",
+      "description": "Average total queue length"
+    },
+    {
+      "name": "L",
+      "type": "time_average",
+      "observable": "in_system",
+      "description": "Average number in system"
+    },
+    {
+      "name": "throughput",
+      "type": "count",
+      "observable": "departure_count",
+      "description": "Total departures"
+    }
+  ]
+}

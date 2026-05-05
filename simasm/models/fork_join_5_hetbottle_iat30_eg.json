@@ -1,0 +1,608 @@
+{
+  "model_name": "fork_join_5_hetbottle_iat30_eg",
+  "description": "Fork-Join 5-Queue using Event Graph formalism - 5 parallel branches",
+  "entities": {
+    "Load": {
+      "name": "Load",
+      "parent": "Object",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time_1": "Real",
+        "service_start_time_2": "Real",
+        "service_start_time_3": "Real",
+        "service_start_time_4": "Real",
+        "service_start_time_5": "Real",
+        "departure_time": "Real"
+      }
+    }
+  },
+  "parameters": {
+    "service_capacity": {
+      "type": "Nat",
+      "value": 5,
+      "description": "Number of servers per branch"
+    },
+    "iat_mean": {
+      "type": "Real",
+      "value": 30.0,
+      "description": "Inter-arrival time mean"
+    },
+    "ist_mean": {
+      "type": "Real",
+      "value": 9.1028,
+      "description": "Service time mean per branch"
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 10000.0,
+      "description": "Simulation end time"
+    },
+    "ist_mean_1": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 1"
+    },
+    "ist_mean_2": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 2"
+    },
+    "ist_mean_3": {
+      "type": "Real",
+      "value": 100.0,
+      "description": "Service time mean at station 3"
+    },
+    "ist_mean_4": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 4"
+    },
+    "ist_mean_5": {
+      "type": "Real",
+      "value": 5.0,
+      "description": "Service time mean at station 5"
+    }
+  },
+  "state_variables": {
+    "queue_count_1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at branch 1"
+    },
+    "server_count_1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at branch 1"
+    },
+    "part_1_num": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Completed but not yet joined at branch 1"
+    },
+    "queue_count_2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at branch 2"
+    },
+    "server_count_2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at branch 2"
+    },
+    "part_2_num": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Completed but not yet joined at branch 2"
+    },
+    "queue_count_3": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at branch 3"
+    },
+    "server_count_3": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at branch 3"
+    },
+    "part_3_num": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Completed but not yet joined at branch 3"
+    },
+    "queue_count_4": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at branch 4"
+    },
+    "server_count_4": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at branch 4"
+    },
+    "part_4_num": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Completed but not yet joined at branch 4"
+    },
+    "queue_count_5": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at branch 5"
+    },
+    "server_count_5": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at branch 5"
+    },
+    "part_5_num": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Completed but not yet joined at branch 5"
+    },
+    "load_id_counter": {
+      "type": "Nat",
+      "initial": 0
+    },
+    "departure_count": {
+      "type": "Nat",
+      "initial": 0
+    }
+  },
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_mean"
+      },
+      "stream_name": "arrivals"
+    },
+    "service_time_1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_1"
+      },
+      "stream_name": "service_1"
+    },
+    "service_time_2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_2"
+      },
+      "stream_name": "service_2"
+    },
+    "service_time_3": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_3"
+      },
+      "stream_name": "service_3"
+    },
+    "service_time_4": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_4"
+      },
+      "stream_name": "service_4"
+    },
+    "service_time_5": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean_5"
+      },
+      "stream_name": "service_5"
+    }
+  },
+  "vertices": [
+    {
+      "name": "Arrive",
+      "description": "Customer arrival event",
+      "state_change": "load_id_counter := load_id_counter + 1"
+    },
+    {
+      "name": "Fork",
+      "description": "Fork: distribute load to all branches",
+      "state_change": "queue_count_1 := queue_count_1 + 1; queue_count_2 := queue_count_2 + 1; queue_count_3 := queue_count_3 + 1; queue_count_4 := queue_count_4 + 1; queue_count_5 := queue_count_5 + 1"
+    },
+    {
+      "name": "Start_1",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at branch 1",
+      "state_change": "queue_count_1 := queue_count_1 - 1; server_count_1 := server_count_1 + 1"
+    },
+    {
+      "name": "Finish_1",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at branch 1",
+      "state_change": "server_count_1 := server_count_1 - 1; part_1_num := part_1_num + 1"
+    },
+    {
+      "name": "Start_2",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at branch 2",
+      "state_change": "queue_count_2 := queue_count_2 - 1; server_count_2 := server_count_2 + 1"
+    },
+    {
+      "name": "Finish_2",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at branch 2",
+      "state_change": "server_count_2 := server_count_2 - 1; part_2_num := part_2_num + 1"
+    },
+    {
+      "name": "Start_3",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at branch 3",
+      "state_change": "queue_count_3 := queue_count_3 - 1; server_count_3 := server_count_3 + 1"
+    },
+    {
+      "name": "Finish_3",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at branch 3",
+      "state_change": "server_count_3 := server_count_3 - 1; part_3_num := part_3_num + 1"
+    },
+    {
+      "name": "Start_4",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at branch 4",
+      "state_change": "queue_count_4 := queue_count_4 - 1; server_count_4 := server_count_4 + 1"
+    },
+    {
+      "name": "Finish_4",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at branch 4",
+      "state_change": "server_count_4 := server_count_4 - 1; part_4_num := part_4_num + 1"
+    },
+    {
+      "name": "Start_5",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at branch 5",
+      "state_change": "queue_count_5 := queue_count_5 - 1; server_count_5 := server_count_5 + 1"
+    },
+    {
+      "name": "Finish_5",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at branch 5",
+      "state_change": "server_count_5 := server_count_5 - 1; part_5_num := part_5_num + 1"
+    },
+    {
+      "name": "Join",
+      "description": "Join: synchronize all branches",
+      "state_change": "part_1_num := part_1_num - 1; part_2_num := part_2_num - 1; part_3_num := part_3_num - 1; part_4_num := part_4_num - 1; part_5_num := part_5_num - 1; departure_count := departure_count + 1"
+    }
+  ],
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "interarrival_time",
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Arrive",
+      "to": "Fork",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Fork",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "queue_count_1 > 0 and server_count_1 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_1",
+      "to": "Finish_1",
+      "delay": "service_time_1",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_1",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "queue_count_1 > 0 and server_count_1 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_1",
+      "to": "Join",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Fork",
+      "to": "Start_2",
+      "delay": 0,
+      "condition": "queue_count_2 > 0 and server_count_2 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_2",
+      "to": "Finish_2",
+      "delay": "service_time_2",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_2",
+      "to": "Start_2",
+      "delay": 0,
+      "condition": "queue_count_2 > 0 and server_count_2 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_2",
+      "to": "Join",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Fork",
+      "to": "Start_3",
+      "delay": 0,
+      "condition": "queue_count_3 > 0 and server_count_3 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_3",
+      "to": "Finish_3",
+      "delay": "service_time_3",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_3",
+      "to": "Start_3",
+      "delay": 0,
+      "condition": "queue_count_3 > 0 and server_count_3 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_3",
+      "to": "Join",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Fork",
+      "to": "Start_4",
+      "delay": 0,
+      "condition": "queue_count_4 > 0 and server_count_4 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_4",
+      "to": "Finish_4",
+      "delay": "service_time_4",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_4",
+      "to": "Start_4",
+      "delay": 0,
+      "condition": "queue_count_4 > 0 and server_count_4 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_4",
+      "to": "Join",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Fork",
+      "to": "Start_5",
+      "delay": 0,
+      "condition": "queue_count_5 > 0 and server_count_5 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_5",
+      "to": "Finish_5",
+      "delay": "service_time_5",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_5",
+      "to": "Start_5",
+      "delay": 0,
+      "condition": "queue_count_5 > 0 and server_count_5 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_5",
+      "to": "Join",
+      "delay": 0,
+      "condition": "true",
+      "priority": 0
+    }
+  ],
+  "cancelling_edges": [],
+  "initial_events": [
+    {
+      "event": "Arrive",
+      "time": "interarrival_time"
+    }
+  ],
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+  "observables": {
+    "queue_count_1": {
+      "name": "queue_count_1",
+      "expression": "queue_count_1",
+      "description": "Number in queue at branch 1"
+    },
+    "server_count_1": {
+      "name": "server_count_1",
+      "expression": "server_count_1",
+      "description": "Number of busy servers at branch 1"
+    },
+    "queue_count_2": {
+      "name": "queue_count_2",
+      "expression": "queue_count_2",
+      "description": "Number in queue at branch 2"
+    },
+    "server_count_2": {
+      "name": "server_count_2",
+      "expression": "server_count_2",
+      "description": "Number of busy servers at branch 2"
+    },
+    "queue_count_3": {
+      "name": "queue_count_3",
+      "expression": "queue_count_3",
+      "description": "Number in queue at branch 3"
+    },
+    "server_count_3": {
+      "name": "server_count_3",
+      "expression": "server_count_3",
+      "description": "Number of busy servers at branch 3"
+    },
+    "queue_count_4": {
+      "name": "queue_count_4",
+      "expression": "queue_count_4",
+      "description": "Number in queue at branch 4"
+    },
+    "server_count_4": {
+      "name": "server_count_4",
+      "expression": "server_count_4",
+      "description": "Number of busy servers at branch 4"
+    },
+    "queue_count_5": {
+      "name": "queue_count_5",
+      "expression": "queue_count_5",
+      "description": "Number in queue at branch 5"
+    },
+    "server_count_5": {
+      "name": "server_count_5",
+      "expression": "server_count_5",
+      "description": "Number of busy servers at branch 5"
+    },
+    "in_system": {
+      "name": "in_system",
+      "expression": "queue_count_1 + server_count_1 + part_1_num + queue_count_2 + server_count_2 + part_2_num + queue_count_3 + server_count_3 + part_3_num + queue_count_4 + server_count_4 + part_4_num + queue_count_5 + server_count_5 + part_5_num",
+      "description": "Total in system"
+    },
+    "L_q_total": {
+      "name": "L_q_total",
+      "expression": "queue_count_1 + queue_count_2 + queue_count_3 + queue_count_4 + queue_count_5",
+      "description": "Total queue length"
+    },
+    "departure_count": {
+      "name": "departure_count",
+      "expression": "departure_count",
+      "description": "Total departures"
+    }
+  },
+  "statistics": [
+    {
+      "name": "L_q_total",
+      "type": "time_average",
+      "observable": "L_q_total",
+      "description": "Average total queue length"
+    },
+    {
+      "name": "L",
+      "type": "time_average",
+      "observable": "in_system",
+      "description": "Average number in system"
+    },
+    {
+      "name": "throughput",
+      "type": "count",
+      "observable": "departure_count",
+      "description": "Total departures"
+    }
+  ]
+}

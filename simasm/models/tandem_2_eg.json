@@ -1,0 +1,272 @@
+{
+  "model_name": "tandem_2_eg",
+  "description": "Tandem 2-Queue using Event Graph formalism - 2 stations in series",
+  "entities": {
+    "Load": {
+      "name": "Load",
+      "parent": "Object",
+      "attributes": {
+        "arrival_time": "Real",
+        "service_start_time_1": "Real",
+        "service_start_time_2": "Real",
+        "departure_time": "Real"
+      }
+    }
+  },
+  "parameters": {
+    "service_capacity": {
+      "type": "Nat",
+      "value": 5,
+      "description": "Number of servers per station"
+    },
+    "iat_mean": {
+      "type": "Real",
+      "value": 1.25,
+      "description": "Inter-arrival time mean"
+    },
+    "ist_mean": {
+      "type": "Real",
+      "value": 1.0,
+      "description": "Service time mean per station"
+    },
+    "sim_end_time": {
+      "type": "Real",
+      "value": 10000.0,
+      "description": "Simulation end time"
+    }
+  },
+  "state_variables": {
+    "queue_count_1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 1"
+    },
+    "server_count_1": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 1"
+    },
+    "queue_count_2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number in queue at station 2"
+    },
+    "server_count_2": {
+      "type": "Nat",
+      "initial": 0,
+      "description": "Number being served at station 2"
+    },
+    "load_id_counter": {
+      "type": "Nat",
+      "initial": 0
+    },
+    "departure_count": {
+      "type": "Nat",
+      "initial": 0
+    }
+  },
+  "random_streams": {
+    "interarrival_time": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "iat_mean"
+      },
+      "stream_name": "arrivals"
+    },
+    "service_time_1": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean"
+      },
+      "stream_name": "service_1"
+    },
+    "service_time_2": {
+      "distribution": "exponential",
+      "params": {
+        "mean": "ist_mean"
+      },
+      "stream_name": "service_2"
+    }
+  },
+  "vertices": [
+    {
+      "name": "Arrive",
+      "description": "Customer arrival event",
+      "state_change": "load_id_counter := load_id_counter + 1; queue_count_1 := queue_count_1 + 1"
+    },
+    {
+      "name": "Start_1",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 1",
+      "state_change": "queue_count_1 := queue_count_1 - 1; server_count_1 := server_count_1 + 1"
+    },
+    {
+      "name": "Finish_1",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 1",
+      "state_change": "server_count_1 := server_count_1 - 1; queue_count_2 := queue_count_2 + 1"
+    },
+    {
+      "name": "Start_2",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service start at station 2",
+      "state_change": "queue_count_2 := queue_count_2 - 1; server_count_2 := server_count_2 + 1"
+    },
+    {
+      "name": "Finish_2",
+      "parameters": [
+        {
+          "load": "Load"
+        }
+      ],
+      "description": "Service completion at station 2 (departure from system)",
+      "state_change": "server_count_2 := server_count_2 - 1; departure_count := departure_count + 1"
+    }
+  ],
+  "scheduling_edges": [
+    {
+      "from": "Arrive",
+      "to": "Arrive",
+      "delay": "interarrival_time",
+      "condition": "true",
+      "priority": 0
+    },
+    {
+      "from": "Arrive",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "server_count_1 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_1",
+      "to": "Finish_1",
+      "delay": "service_time_1",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_1",
+      "to": "Start_1",
+      "delay": 0,
+      "condition": "queue_count_1 > 0 and server_count_1 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    },
+    {
+      "from": "Finish_1",
+      "to": "Start_2",
+      "delay": 0,
+      "condition": "server_count_2 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Start_2",
+      "to": "Finish_2",
+      "delay": "service_time_2",
+      "condition": "true",
+      "priority": 0,
+      "parameters": [
+        "load"
+      ]
+    },
+    {
+      "from": "Finish_2",
+      "to": "Start_2",
+      "delay": 0,
+      "condition": "queue_count_2 > 0 and server_count_2 < service_capacity",
+      "priority": 0,
+      "parameters": [
+        "next_load"
+      ]
+    }
+  ],
+  "cancelling_edges": [],
+  "initial_events": [
+    {
+      "event": "Arrive",
+      "time": "interarrival_time"
+    }
+  ],
+  "stopping_condition": "sim_clocktime >= sim_end_time",
+  "observables": {
+    "queue_count_1": {
+      "name": "queue_count_1",
+      "expression": "queue_count_1",
+      "description": "Number in queue at station 1"
+    },
+    "server_count_1": {
+      "name": "server_count_1",
+      "expression": "server_count_1",
+      "description": "Number of busy servers at station 1"
+    },
+    "queue_count_2": {
+      "name": "queue_count_2",
+      "expression": "queue_count_2",
+      "description": "Number in queue at station 2"
+    },
+    "server_count_2": {
+      "name": "server_count_2",
+      "expression": "server_count_2",
+      "description": "Number of busy servers at station 2"
+    },
+    "in_system": {
+      "name": "in_system",
+      "expression": "queue_count_1 + server_count_1 + queue_count_2 + server_count_2",
+      "description": "Total in system"
+    },
+    "L_q_total": {
+      "name": "L_q_total",
+      "expression": "queue_count_1 + queue_count_2",
+      "description": "Total queue length"
+    },
+    "departure_count": {
+      "name": "departure_count",
+      "expression": "departure_count",
+      "description": "Total departures"
+    }
+  },
+  "statistics": [
+    {
+      "name": "L_q_total",
+      "type": "time_average",
+      "observable": "L_q_total",
+      "description": "Average total queue length"
+    },
+    {
+      "name": "L",
+      "type": "time_average",
+      "observable": "in_system",
+      "description": "Average number in system"
+    },
+    {
+      "name": "throughput",
+      "type": "count",
+      "observable": "departure_count",
+      "description": "Total departures"
+    }
+  ]
+}

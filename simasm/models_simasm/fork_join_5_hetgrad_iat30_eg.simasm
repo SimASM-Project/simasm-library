@@ -1,0 +1,568 @@
+// =============================================================================
+// Event Graph Model: fork_join_5_hetgrad_iat30_eg
+// =============================================================================
+// Fork-Join 5-Queue using Event Graph formalism - 5 parallel branches
+// Generated: 2026-05-05 22:13:41
+// Formalism: Event Graph (Schruben 1983)
+// Algorithm: Next-Event Time-Advance (Law 2013)
+
+// =============================================================================
+// IMPORT LIBRARIES
+// =============================================================================
+
+import Random as rnd
+import Stdlib as lib
+
+// =============================================================================
+// DOMAIN DECLARATIONS
+// =============================================================================
+
+// Base object domain
+domain Object
+
+// Event domain
+domain Event
+
+// =============================================================================
+// CONSTANT DECLARATIONS
+// =============================================================================
+
+const service_capacity: Nat  // Number of servers per branch
+const iat_mean: Real  // Inter-arrival time mean
+const ist_mean: Real  // Service time mean per branch
+const sim_end_time: Real  // Simulation end time
+const ist_mean_1: Real  // Service time mean at station 1
+const ist_mean_2: Real  // Service time mean at station 2
+const ist_mean_3: Real  // Service time mean at station 3
+const ist_mean_4: Real  // Service time mean at station 4
+const ist_mean_5: Real  // Service time mean at station 5
+
+// =============================================================================
+// DYNAMIC VARIABLE DECLARATIONS - STATES space
+// =============================================================================
+
+// Simulation clock and event list
+var sim_clocktime: Real
+var future_event_list: List<Event>
+var current_event: Event
+
+// State variables (STATES)
+var queue_count_1: Nat  // Number in queue at branch 1
+var server_count_1: Nat  // Number being served at branch 1
+var part_1_num: Nat  // Completed but not yet joined at branch 1
+var queue_count_2: Nat  // Number in queue at branch 2
+var server_count_2: Nat  // Number being served at branch 2
+var part_2_num: Nat  // Completed but not yet joined at branch 2
+var queue_count_3: Nat  // Number in queue at branch 3
+var server_count_3: Nat  // Number being served at branch 3
+var part_3_num: Nat  // Completed but not yet joined at branch 3
+var queue_count_4: Nat  // Number in queue at branch 4
+var server_count_4: Nat  // Number being served at branch 4
+var part_4_num: Nat  // Completed but not yet joined at branch 4
+var queue_count_5: Nat  // Number in queue at branch 5
+var server_count_5: Nat  // Number being served at branch 5
+var part_5_num: Nat  // Completed but not yet joined at branch 5
+var load_id_counter: Nat
+var departure_count: Nat
+
+// =============================================================================
+// RANDOM STREAM VARIABLES - Edge delay functions T
+// =============================================================================
+
+var interarrival_time: rnd.exponential(iat_mean) as "arrivals"
+var service_time_1: rnd.exponential(ist_mean_1) as "service_1"
+var service_time_2: rnd.exponential(ist_mean_2) as "service_2"
+var service_time_3: rnd.exponential(ist_mean_3) as "service_3"
+var service_time_4: rnd.exponential(ist_mean_4) as "service_4"
+var service_time_5: rnd.exponential(ist_mean_5) as "service_5"
+
+// =============================================================================
+// DYNAMIC FUNCTION DECLARATIONS
+// =============================================================================
+
+// Event properties
+dynamic function event_rule(e: Event): Rule
+dynamic function event_scheduled_time(e: Event): Real
+dynamic function event_parameters(e: Event): List<Any>
+
+// =============================================================================
+// DERIVED FUNCTIONS - Observables
+// =============================================================================
+
+derived function queue_count_1(): Nat =  // Number in queue at branch 1
+    queue_count_1
+
+derived function server_count_1(): Nat =  // Number of busy servers at branch 1
+    server_count_1
+
+derived function queue_count_2(): Nat =  // Number in queue at branch 2
+    queue_count_2
+
+derived function server_count_2(): Nat =  // Number of busy servers at branch 2
+    server_count_2
+
+derived function queue_count_3(): Nat =  // Number in queue at branch 3
+    queue_count_3
+
+derived function server_count_3(): Nat =  // Number of busy servers at branch 3
+    server_count_3
+
+derived function queue_count_4(): Nat =  // Number in queue at branch 4
+    queue_count_4
+
+derived function server_count_4(): Nat =  // Number of busy servers at branch 4
+    server_count_4
+
+derived function queue_count_5(): Nat =  // Number in queue at branch 5
+    queue_count_5
+
+derived function server_count_5(): Nat =  // Number of busy servers at branch 5
+    server_count_5
+
+derived function in_system(): Nat =  // Total in system
+    queue_count_1 + server_count_1 + part_1_num + queue_count_2 + server_count_2 + part_2_num + queue_count_3 + server_count_3 + part_3_num + queue_count_4 + server_count_4 + part_4_num + queue_count_5 + server_count_5 + part_5_num
+
+derived function L_q_total(): Nat =  // Total queue length
+    queue_count_1 + queue_count_2 + queue_count_3 + queue_count_4 + queue_count_5
+
+derived function departure_count(): Nat =  // Total departures
+    departure_count
+
+// =============================================================================
+// EVENT RULES - State transition functions F
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Arrive Event - f_Arrive
+// -----------------------------------------------------------------------------
+// Customer arrival event
+
+rule event_arrive() =
+    // State transition: load_id_counter := load_id_counter + 1
+    load_id_counter := load_id_counter + 1
+
+    // Process scheduling edges E_s(G)
+    let scheduled_arrive = new Event
+    event_rule(scheduled_arrive) := "event_arrive"
+    event_scheduled_time(scheduled_arrive) := sim_clocktime + interarrival_time
+    event_parameters(scheduled_arrive) := []
+    lib.add(future_event_list, scheduled_arrive)
+
+    let scheduled_fork = new Event
+    event_rule(scheduled_fork) := "event_fork"
+    event_scheduled_time(scheduled_fork) := sim_clocktime
+    event_parameters(scheduled_fork) := []
+    lib.add(future_event_list, scheduled_fork)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Fork Event - f_Fork
+// -----------------------------------------------------------------------------
+// Fork: distribute load to all branches
+
+rule event_fork() =
+    // State transition: queue_count_1 := queue_count_1 + 1; queue_count_2 := queue_count_2 + 1; queue_count_3 := queue_count_3 + 1; queue_count_4 := queue_count_4 + 1; queue_count_5 := queue_count_5 + 1
+    queue_count_1 := queue_count_1 + 1
+    queue_count_2 := queue_count_2 + 1
+    queue_count_3 := queue_count_3 + 1
+    queue_count_4 := queue_count_4 + 1
+    queue_count_5 := queue_count_5 + 1
+
+    // Process scheduling edges E_s(G)
+    if queue_count_1 > 0 and server_count_1 < service_capacity then
+        let scheduled_start_1 = new Event
+        event_rule(scheduled_start_1) := "event_start_1"
+        event_scheduled_time(scheduled_start_1) := sim_clocktime
+        event_parameters(scheduled_start_1) := []
+        lib.add(future_event_list, scheduled_start_1)
+    endif
+
+    if queue_count_2 > 0 and server_count_2 < service_capacity then
+        let scheduled_start_2 = new Event
+        event_rule(scheduled_start_2) := "event_start_2"
+        event_scheduled_time(scheduled_start_2) := sim_clocktime
+        event_parameters(scheduled_start_2) := []
+        lib.add(future_event_list, scheduled_start_2)
+    endif
+
+    if queue_count_3 > 0 and server_count_3 < service_capacity then
+        let scheduled_start_3 = new Event
+        event_rule(scheduled_start_3) := "event_start_3"
+        event_scheduled_time(scheduled_start_3) := sim_clocktime
+        event_parameters(scheduled_start_3) := []
+        lib.add(future_event_list, scheduled_start_3)
+    endif
+
+    if queue_count_4 > 0 and server_count_4 < service_capacity then
+        let scheduled_start_4 = new Event
+        event_rule(scheduled_start_4) := "event_start_4"
+        event_scheduled_time(scheduled_start_4) := sim_clocktime
+        event_parameters(scheduled_start_4) := []
+        lib.add(future_event_list, scheduled_start_4)
+    endif
+
+    if queue_count_5 > 0 and server_count_5 < service_capacity then
+        let scheduled_start_5 = new Event
+        event_rule(scheduled_start_5) := "event_start_5"
+        event_scheduled_time(scheduled_start_5) := sim_clocktime
+        event_parameters(scheduled_start_5) := []
+        lib.add(future_event_list, scheduled_start_5)
+    endif
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start_1 Event - f_Start_1
+// -----------------------------------------------------------------------------
+// Service start at branch 1
+
+rule event_start_1() =
+    // State transition: queue_count_1 := queue_count_1 - 1; server_count_1 := server_count_1 + 1
+    queue_count_1 := queue_count_1 - 1
+    server_count_1 := server_count_1 + 1
+
+    // Process scheduling edges E_s(G)
+    let scheduled_finish_1 = new Event
+    event_rule(scheduled_finish_1) := "event_finish_1"
+    event_scheduled_time(scheduled_finish_1) := sim_clocktime + service_time_1
+    event_parameters(scheduled_finish_1) := []
+    lib.add(future_event_list, scheduled_finish_1)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish_1 Event - f_Finish_1
+// -----------------------------------------------------------------------------
+// Service completion at branch 1
+
+rule event_finish_1() =
+    // State transition: server_count_1 := server_count_1 - 1; part_1_num := part_1_num + 1
+    server_count_1 := server_count_1 - 1
+    part_1_num := part_1_num + 1
+
+    // Process scheduling edges E_s(G)
+    if queue_count_1 > 0 and server_count_1 < service_capacity then
+        let scheduled_start_1 = new Event
+        event_rule(scheduled_start_1) := "event_start_1"
+        event_scheduled_time(scheduled_start_1) := sim_clocktime
+        event_parameters(scheduled_start_1) := []
+        lib.add(future_event_list, scheduled_start_1)
+    endif
+
+    let scheduled_join = new Event
+    event_rule(scheduled_join) := "event_join"
+    event_scheduled_time(scheduled_join) := sim_clocktime
+    event_parameters(scheduled_join) := []
+    lib.add(future_event_list, scheduled_join)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start_2 Event - f_Start_2
+// -----------------------------------------------------------------------------
+// Service start at branch 2
+
+rule event_start_2() =
+    // State transition: queue_count_2 := queue_count_2 - 1; server_count_2 := server_count_2 + 1
+    queue_count_2 := queue_count_2 - 1
+    server_count_2 := server_count_2 + 1
+
+    // Process scheduling edges E_s(G)
+    let scheduled_finish_2 = new Event
+    event_rule(scheduled_finish_2) := "event_finish_2"
+    event_scheduled_time(scheduled_finish_2) := sim_clocktime + service_time_2
+    event_parameters(scheduled_finish_2) := []
+    lib.add(future_event_list, scheduled_finish_2)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish_2 Event - f_Finish_2
+// -----------------------------------------------------------------------------
+// Service completion at branch 2
+
+rule event_finish_2() =
+    // State transition: server_count_2 := server_count_2 - 1; part_2_num := part_2_num + 1
+    server_count_2 := server_count_2 - 1
+    part_2_num := part_2_num + 1
+
+    // Process scheduling edges E_s(G)
+    if queue_count_2 > 0 and server_count_2 < service_capacity then
+        let scheduled_start_2 = new Event
+        event_rule(scheduled_start_2) := "event_start_2"
+        event_scheduled_time(scheduled_start_2) := sim_clocktime
+        event_parameters(scheduled_start_2) := []
+        lib.add(future_event_list, scheduled_start_2)
+    endif
+
+    let scheduled_join = new Event
+    event_rule(scheduled_join) := "event_join"
+    event_scheduled_time(scheduled_join) := sim_clocktime
+    event_parameters(scheduled_join) := []
+    lib.add(future_event_list, scheduled_join)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start_3 Event - f_Start_3
+// -----------------------------------------------------------------------------
+// Service start at branch 3
+
+rule event_start_3() =
+    // State transition: queue_count_3 := queue_count_3 - 1; server_count_3 := server_count_3 + 1
+    queue_count_3 := queue_count_3 - 1
+    server_count_3 := server_count_3 + 1
+
+    // Process scheduling edges E_s(G)
+    let scheduled_finish_3 = new Event
+    event_rule(scheduled_finish_3) := "event_finish_3"
+    event_scheduled_time(scheduled_finish_3) := sim_clocktime + service_time_3
+    event_parameters(scheduled_finish_3) := []
+    lib.add(future_event_list, scheduled_finish_3)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish_3 Event - f_Finish_3
+// -----------------------------------------------------------------------------
+// Service completion at branch 3
+
+rule event_finish_3() =
+    // State transition: server_count_3 := server_count_3 - 1; part_3_num := part_3_num + 1
+    server_count_3 := server_count_3 - 1
+    part_3_num := part_3_num + 1
+
+    // Process scheduling edges E_s(G)
+    if queue_count_3 > 0 and server_count_3 < service_capacity then
+        let scheduled_start_3 = new Event
+        event_rule(scheduled_start_3) := "event_start_3"
+        event_scheduled_time(scheduled_start_3) := sim_clocktime
+        event_parameters(scheduled_start_3) := []
+        lib.add(future_event_list, scheduled_start_3)
+    endif
+
+    let scheduled_join = new Event
+    event_rule(scheduled_join) := "event_join"
+    event_scheduled_time(scheduled_join) := sim_clocktime
+    event_parameters(scheduled_join) := []
+    lib.add(future_event_list, scheduled_join)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start_4 Event - f_Start_4
+// -----------------------------------------------------------------------------
+// Service start at branch 4
+
+rule event_start_4() =
+    // State transition: queue_count_4 := queue_count_4 - 1; server_count_4 := server_count_4 + 1
+    queue_count_4 := queue_count_4 - 1
+    server_count_4 := server_count_4 + 1
+
+    // Process scheduling edges E_s(G)
+    let scheduled_finish_4 = new Event
+    event_rule(scheduled_finish_4) := "event_finish_4"
+    event_scheduled_time(scheduled_finish_4) := sim_clocktime + service_time_4
+    event_parameters(scheduled_finish_4) := []
+    lib.add(future_event_list, scheduled_finish_4)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish_4 Event - f_Finish_4
+// -----------------------------------------------------------------------------
+// Service completion at branch 4
+
+rule event_finish_4() =
+    // State transition: server_count_4 := server_count_4 - 1; part_4_num := part_4_num + 1
+    server_count_4 := server_count_4 - 1
+    part_4_num := part_4_num + 1
+
+    // Process scheduling edges E_s(G)
+    if queue_count_4 > 0 and server_count_4 < service_capacity then
+        let scheduled_start_4 = new Event
+        event_rule(scheduled_start_4) := "event_start_4"
+        event_scheduled_time(scheduled_start_4) := sim_clocktime
+        event_parameters(scheduled_start_4) := []
+        lib.add(future_event_list, scheduled_start_4)
+    endif
+
+    let scheduled_join = new Event
+    event_rule(scheduled_join) := "event_join"
+    event_scheduled_time(scheduled_join) := sim_clocktime
+    event_parameters(scheduled_join) := []
+    lib.add(future_event_list, scheduled_join)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Start_5 Event - f_Start_5
+// -----------------------------------------------------------------------------
+// Service start at branch 5
+
+rule event_start_5() =
+    // State transition: queue_count_5 := queue_count_5 - 1; server_count_5 := server_count_5 + 1
+    queue_count_5 := queue_count_5 - 1
+    server_count_5 := server_count_5 + 1
+
+    // Process scheduling edges E_s(G)
+    let scheduled_finish_5 = new Event
+    event_rule(scheduled_finish_5) := "event_finish_5"
+    event_scheduled_time(scheduled_finish_5) := sim_clocktime + service_time_5
+    event_parameters(scheduled_finish_5) := []
+    lib.add(future_event_list, scheduled_finish_5)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Finish_5 Event - f_Finish_5
+// -----------------------------------------------------------------------------
+// Service completion at branch 5
+
+rule event_finish_5() =
+    // State transition: server_count_5 := server_count_5 - 1; part_5_num := part_5_num + 1
+    server_count_5 := server_count_5 - 1
+    part_5_num := part_5_num + 1
+
+    // Process scheduling edges E_s(G)
+    if queue_count_5 > 0 and server_count_5 < service_capacity then
+        let scheduled_start_5 = new Event
+        event_rule(scheduled_start_5) := "event_start_5"
+        event_scheduled_time(scheduled_start_5) := sim_clocktime
+        event_parameters(scheduled_start_5) := []
+        lib.add(future_event_list, scheduled_start_5)
+    endif
+
+    let scheduled_join = new Event
+    event_rule(scheduled_join) := "event_join"
+    event_scheduled_time(scheduled_join) := sim_clocktime
+    event_parameters(scheduled_join) := []
+    lib.add(future_event_list, scheduled_join)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Join Event - f_Join
+// -----------------------------------------------------------------------------
+// Join: synchronize all branches
+
+rule event_join() =
+    // State transition: part_1_num := part_1_num - 1; part_2_num := part_2_num - 1; part_3_num := part_3_num - 1; part_4_num := part_4_num - 1; part_5_num := part_5_num - 1; departure_count := departure_count + 1
+    part_1_num := part_1_num - 1
+    part_2_num := part_2_num - 1
+    part_3_num := part_3_num - 1
+    part_4_num := part_4_num - 1
+    part_5_num := part_5_num - 1
+    departure_count := departure_count + 1
+
+endrule
+
+// =============================================================================
+// NEXT-EVENT TIME-ADVANCE ALGORITHM
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Initialization Routine
+// -----------------------------------------------------------------------------
+// Set STATE := STATE_0, FEL := FEL_0
+
+rule initialisation_routine() =
+    // Schedule initial Arrive event
+    let init_event_0 = new Event
+    event_rule(init_event_0) := "event_arrive"
+    event_scheduled_time(init_event_0) := sim_clocktime + interarrival_time
+    event_parameters(init_event_0) := []
+    lib.add(future_event_list, init_event_0)
+
+endrule
+
+// -----------------------------------------------------------------------------
+// Timing Routine
+// -----------------------------------------------------------------------------
+// Pop earliest event from FEL, advance clock to event time
+
+rule timing_routine() =
+    // Sort FEL by (scheduled_time, -priority)
+    lib.sort(future_event_list, "event_scheduled_time")
+
+    if lib.length(future_event_list) > 0 then
+        // Remove next event from FEL
+        let next_event = lib.pop(future_event_list)
+
+        // Advance simulation clock
+        sim_clocktime := event_scheduled_time(next_event)
+
+        // Store for event routine dispatch
+        current_event := next_event
+    endif
+endrule
+
+// -----------------------------------------------------------------------------
+// Event Routine
+// -----------------------------------------------------------------------------
+// Dispatch to event-specific rule using lib.apply_rule
+
+rule event_routine() =
+    let r = event_rule(current_event)
+    let params = event_parameters(current_event)
+    lib.apply_rule(r, params)
+endrule
+
+// =============================================================================
+// INITIAL STATE - STATE_0
+// =============================================================================
+
+init:
+    // Parameters
+    service_capacity := 5
+    iat_mean := 30.0
+    ist_mean := 10.0
+    sim_end_time := 10000.0
+    ist_mean_1 := 1.0
+    ist_mean_2 := 3.1623
+    ist_mean_3 := 10.0
+    ist_mean_4 := 31.6228
+    ist_mean_5 := 100.0
+
+    // Simulation state
+    sim_clocktime := 0.0
+    future_event_list := []
+
+    // Initial state variables STATE_0
+    queue_count_1 := 0
+    server_count_1 := 0
+    part_1_num := 0
+    queue_count_2 := 0
+    server_count_2 := 0
+    part_2_num := 0
+    queue_count_3 := 0
+    server_count_3 := 0
+    part_3_num := 0
+    queue_count_4 := 0
+    server_count_4 := 0
+    part_4_num := 0
+    queue_count_5 := 0
+    server_count_5 := 0
+    part_5_num := 0
+    load_id_counter := 0
+    departure_count := 0
+endinit
+
+// =============================================================================
+// MAIN RULE
+// =============================================================================
+
+main rule main =
+    // Initialize on first step
+    if sim_clocktime == 0.0 and lib.length(future_event_list) == 0 then
+        initialisation_routine()
+    endif
+
+    // Run while FEL not empty and time not exceeded
+    if lib.length(future_event_list) > 0 and sim_clocktime < sim_end_time then
+        timing_routine()
+        event_routine()
+    endif
+endrule
+
