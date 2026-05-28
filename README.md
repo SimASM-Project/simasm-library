@@ -36,10 +36,7 @@ pip install -e .
 
 ## Reproducing Paper Results
 
-SimASM includes a reproducibility module for the SMC paper:
-
-> Yeo, K. S. S., & Li, H. (2025). Semantic Model Complexity for Event Graph
-> Discrete-Event Simulation Models via Abstract State Machines. *SIMULTECH 2025*.
+SimASM includes a reproducibility module for research paper:
 
 ### Experiment 1: 51-Model LOOCV Validation (Section 5)
 
