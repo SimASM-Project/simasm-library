@@ -577,6 +577,13 @@ def run_single_verification(
             return run_kinduction_verification_from_spec(
                 path, spec, output_dir, verbose, as_json
             )
+        elif spec.check.check_type == "macro_step_refinement":
+            from simasm.verification.run_verification_msre import run_msre_verification
+            result = run_msre_verification(str(path), verbose=verbose)
+            if as_json:
+                import json
+                print(json.dumps(result, indent=2, default=str))
+            return result["is_equivalent"]
         else:
             # Default to trace comparison
             return run_trace_comparison_verification(

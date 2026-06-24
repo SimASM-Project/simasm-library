@@ -302,6 +302,8 @@ def verify(spec: str, progress: bool = True) -> Any:
     if parsed.check.check_type == "stutter_equivalence_k_induction":
         # Use k-induction verification
         return _run_kinduction_verification(parsed, temp_dir, progress)
+    elif parsed.check.check_type == "macro_step_refinement":
+        return _run_msre_verification(parsed, temp_dir, progress)
     else:
         # Default to trace comparison
         return _run_trace_comparison_verification(parsed, temp_dir, progress)
@@ -319,6 +321,122 @@ def _run_trace_comparison_verification(parsed, base_path: Path, progress: bool) 
 
     result = engine.run(progress_callback=progress_callback if progress else None)
     return result
+
+
+def _run_msre_verification(parsed, base_path: Path, progress: bool) -> Any:
+    """Run macro-step refinement equivalence verification."""
+    import time as time_module
+    from simasm.experimenter.engine import (
+        TraceVerificationResult, VerificationStatus,
+    )
+    from simasm.verification.msre import MacroStepRefinementVerifier
+    from simasm.verification.run_verification import build_transition_system
+
+    start_time = time_module.time()
+    end_time = parsed.check.run_length
+    seeds = parsed.seeds
+    max_boundaries = parsed.check.k_max
+
+    if len(parsed.models) != 2:
+        raise ValueError(
+            f"MSRE verification requires exactly 2 models, got {len(parsed.models)}"
+        )
+
+    model_a, model_b = parsed.models[0], parsed.models[1]
+
+    labels_a = [l for l in parsed.labels if l.model == model_a.name]
+    labels_b = [l for l in parsed.labels if l.model == model_b.name]
+
+    equivalent_count = 0
+    failed_seeds = []
+    all_steps_a = []
+    all_steps_b = []
+    all_boundaries = []
+
+    for i, seed in enumerate(seeds):
+        if progress:
+            print(f"  [{i+1}/{len(seeds)}] Seed {seed}...", end="", flush=True)
+
+        t0 = time_module.time()
+
+        path_a = Path(model_a.path)
+        if not path_a.is_absolute():
+            path_a = base_path / path_a
+        path_b = Path(model_b.path)
+        if not path_b.is_absolute():
+            path_b = base_path / path_b
+
+        ts_a = build_transition_system(
+            str(path_a), model_a.name, labels_a, seed, end_time,
+        )
+        ts_b = build_transition_system(
+            str(path_b), model_b.name, labels_b, seed, end_time,
+        )
+
+        verifier = MacroStepRefinementVerifier(ts_a, ts_b)
+        result = verifier.verify(seed=seed, max_boundaries=max_boundaries)
+        elapsed = time_module.time() - t0
+
+        all_steps_a.append(result.total_steps_a)
+        all_steps_b.append(result.total_steps_b)
+        all_boundaries.append(result.boundaries_checked)
+
+        if result.is_equivalent:
+            equivalent_count += 1
+            if progress:
+                summary = result.step_profile_summary
+                m_mean = summary.get("m_mean", 0)
+                n_mean = summary.get("n_mean", 0)
+                print(f" EQUIVALENT ({result.boundaries_checked} boundaries, "
+                      f"m={m_mean:.1f} n={n_mean:.1f}, {elapsed:.1f}s)")
+        else:
+            failed_seeds.append(seed)
+            if progress:
+                print(f" NOT EQUIVALENT (k={result.failure.boundary_k}, "
+                      f"reason={result.failure.reason})")
+
+    total_elapsed = time_module.time() - start_time
+    is_equivalent = len(failed_seeds) == 0
+    n = len(seeds)
+
+    if is_equivalent:
+        msg = (f"Models are MACRO-STEP REFINEMENT EQUIVALENT "
+               f"(verified over {end_time}s simulation, {n} seed(s))")
+    else:
+        msg = (f"Models are NOT macro-step refinement equivalent "
+               f"({equivalent_count}/{n} seeds equivalent, "
+               f"failed: {failed_seeds})")
+
+    model_stats = {
+        model_a.name: {
+            "raw_length": int(sum(all_steps_a) / n) if n else 0,
+            "ns_length": int(sum(all_boundaries) / n) if n else 0,
+            "stutter_steps": int((sum(all_steps_a) - sum(all_boundaries)) / n) if n else 0,
+        },
+        model_b.name: {
+            "raw_length": int(sum(all_steps_b) / n) if n else 0,
+            "ns_length": int(sum(all_boundaries) / n) if n else 0,
+            "stutter_steps": int((sum(all_steps_b) - sum(all_boundaries)) / n) if n else 0,
+        },
+    }
+
+    model_timing = {
+        model_a.name: {"total_time_sec": total_elapsed / 2},
+        model_b.name: {"total_time_sec": total_elapsed / 2},
+    }
+
+    return TraceVerificationResult(
+        is_equivalent=is_equivalent,
+        status=VerificationStatus.EQUIVALENT if is_equivalent else VerificationStatus.NOT_EQUIVALENT,
+        model_stats=model_stats,
+        model_timing=model_timing,
+        first_difference_pos=None,
+        time_elapsed=total_elapsed,
+        message=msg,
+        num_seeds=n,
+        equivalent_count=equivalent_count,
+        failed_seeds=failed_seeds,
+    )
 
 
 def _run_kinduction_verification(parsed, base_path: Path, progress: bool) -> Any:

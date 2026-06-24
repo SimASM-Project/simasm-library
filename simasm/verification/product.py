@@ -173,53 +173,59 @@ class ProductTransitionSystem:
         Not thread-safe. Use separate instances for concurrent verification.
     """
     
-    def __init__(self, ts_a: TransitionSystem, ts_b: TransitionSystem):
+    def __init__(self, ts_a: TransitionSystem, ts_b: TransitionSystem,
+                 record_path: bool = True):
         """
         Initialize product system.
-        
+
         Verifies Assumption 1 (initial state correspondence):
         L_A(A₀) = L_B(B₀) must hold.
-        
+
         Args:
             ts_a: First transition system (system A)
             ts_b: Second transition system (system B)
-            
+            record_path: Whether to record full product path (state copies
+                        at every step). Set to False for large-scale experiments
+                        where counterexample generation is not needed.
+
         Raises:
             ValueError: If initial labels don't match (Assumption 1 violation)
         """
         self._ts_a = ts_a
         self._ts_b = ts_b
-        
+        self._record_path = record_path
+
         # Verify Assumption 1: Initial state correspondence
         initial_label_a = ts_a.initial_label
         initial_label_b = ts_b.initial_label
-        
+
         if initial_label_a != initial_label_b:
             raise ValueError(
                 f"Assumption 1 violation: Initial labels don't match. "
                 f"L_A(A_0) = {format_label_set(initial_label_a)}, "
                 f"L_B(B_0) = {format_label_set(initial_label_b)}"
             )
-        
+
         # Initialize phase to Sync (Definition 9)
         self._phase: Phase = SYNC
-        
+
         # Track step count
         self._step_count: int = 0
-        
+
         # Record path for counterexample generation
         self._path: List[ProductState] = []
-        
+
         # Record initial state
-        initial_state = ProductState(
-            state_a=ts_a.current_state.copy(),
-            state_b=ts_b.current_state.copy(),
-            phase=SYNC,
-            label_a=initial_label_a,
-            label_b=initial_label_b,
-            step_number=0
-        )
-        self._path.append(initial_state)
+        if self._record_path:
+            initial_state = ProductState(
+                state_a=ts_a.current_state.copy(),
+                state_b=ts_b.current_state.copy(),
+                phase=SYNC,
+                label_a=initial_label_a,
+                label_b=initial_label_b,
+                step_number=0
+            )
+            self._path.append(initial_state)
         
         # Track projection traces (Definition 13)
         self._trace_a = Trace()
@@ -314,8 +320,11 @@ class ProductTransitionSystem:
             return False
         
         if is_sync(self._phase):
-            # In Sync, both systems step, so both must be able to step
-            return self._ts_a.can_step() and self._ts_b.can_step()
+            # In Sync, we need at least one system to have pending events.
+            # If only one can step, we still need to execute it to detect
+            # whether it produces an effective step (which would enter a
+            # leads phase with no way for the other to catch up).
+            return self._ts_a.can_step() or self._ts_b.can_step()
         elif is_a_leads(self._phase):
             # In ALeads, only B steps
             return self._ts_b.can_step()
@@ -386,15 +395,16 @@ class ProductTransitionSystem:
         self._step_count += 1
         
         # Record new state in path
-        new_state = ProductState(
-            state_a=self._ts_a.current_state.copy(),
-            state_b=self._ts_b.current_state.copy(),
-            phase=new_phase,
-            label_a=self._ts_a.current_label,
-            label_b=self._ts_b.current_label,
-            step_number=self._step_count
-        )
-        self._path.append(new_state)
+        if self._record_path:
+            new_state = ProductState(
+                state_a=self._ts_a.current_state.copy(),
+                state_b=self._ts_b.current_state.copy(),
+                phase=new_phase,
+                label_a=self._ts_a.current_label,
+                label_b=self._ts_b.current_label,
+                step_number=self._step_count
+            )
+            self._path.append(new_state)
         
         logger.debug(
             f"Step {self._step_count}: {self._last_rule} -> {new_phase}"
@@ -416,12 +426,17 @@ class ProductTransitionSystem:
         # Store current labels before stepping
         old_label_a = self._ts_a.current_label
         old_label_b = self._ts_b.current_label
-        
-        # Both systems step
-        self._ts_a.step()
-        self._ts_b.step()
-        
-        # Get new labels
+
+        # Step whichever systems can step; a terminated system stays
+        # at its current label (terminal self-loop / stutter).
+        a_can = self._ts_a.can_step()
+        b_can = self._ts_b.can_step()
+        if a_can:
+            self._ts_a.step()
+        if b_can:
+            self._ts_b.step()
+
+        # Get new labels (unchanged if system didn't step)
         new_label_a = self._ts_a.current_label
         new_label_b = self._ts_b.current_label
         
@@ -615,15 +630,17 @@ class ProductTransitionSystem:
         self._step_count = 0
         
         # Reset path
-        initial_state = ProductState(
-            state_a=self._ts_a.current_state.copy(),
-            state_b=self._ts_b.current_state.copy(),
-            phase=SYNC,
-            label_a=self._ts_a.initial_label,
-            label_b=self._ts_b.initial_label,
-            step_number=0
-        )
-        self._path = [initial_state]
+        self._path = []
+        if self._record_path:
+            initial_state = ProductState(
+                state_a=self._ts_a.current_state.copy(),
+                state_b=self._ts_b.current_state.copy(),
+                phase=SYNC,
+                label_a=self._ts_a.initial_label,
+                label_b=self._ts_b.initial_label,
+                step_number=0
+            )
+            self._path.append(initial_state)
         
         # Reset traces
         self._trace_a = Trace()
@@ -658,6 +675,10 @@ class ProductTransitionSystem:
             steps += 1
             if self.is_error():
                 return (True, steps)
+        # Terminal check: if the loop ended in a leads phase, one system
+        # produced an effective step that the other can never match.
+        if not self.is_sync() and not self.is_error():
+            return (True, steps)
         return (False, steps)
     
     def verify(self, max_steps: Optional[int] = None) -> bool:

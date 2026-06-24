@@ -336,9 +336,9 @@ def main():
     verbose = not args.quiet
 
     # Paths
-    project_2_dir = project_root / "simasm" / "input" / "project_2"
+    project_2_dir = project_root / "experiments" / "project_2" / "misc" / "json_models"
     held_out_dir = project_2_dir / "held_out"
-    output_dir = project_root / "simasm" / "output" / "held_out_validation" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = project_root / "experiments" / "project_2" / "validation" / "results" / "held_out_validation" / datetime.now().strftime("%Y%m%d_%H%M%S")
 
     dev_topologies = ["tandem_n_queue", "fork_join_n_queue", "feedback_n_queue"]
     # Hybrid is now part of development set (33 models total)

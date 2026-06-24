@@ -7,9 +7,9 @@ Run W-stutter equivalence verification from a .simasm verification specification
 This script:
 1. Parses a verification .simasm file
 2. Loads both models with the same seed
-3. Runs them for a fixed simulation time
-4. Collects traces using the defined labels
-5. Verifies W-stutter equivalence
+3. Constructs transition systems with labeling functions
+4. Builds the augmented product transition system
+5. Verifies W-stutter equivalence via the product (Algorithm 1)
 6. Outputs results
 """
 
@@ -32,6 +32,9 @@ from simasm.verification.trace import (
     count_stutter_steps
 )
 from simasm.verification.label import Label, LabelSet, LabelingFunction
+from simasm.verification.ts import TransitionSystem
+from simasm.verification.product import ProductTransitionSystem
+from simasm.verification.phase import is_sync, is_error
 from simasm.core.terms import Environment, LocationTerm
 from simasm.simulation.collector import parse_expression
 from simasm.core.state import Undefined
@@ -92,15 +95,15 @@ def create_labeling_function(term_evaluator, labels: list) -> LabelingFunction:
     return labeling
 
 
-def run_model_trace(
+def build_transition_system(
     model_path: str,
     model_name: str,
     label_nodes: list,
     seed: int,
     end_time: float
-) -> Tuple[Trace, List[dict]]:
+) -> TransitionSystem:
     """
-    Run a model and collect its trace.
+    Build a TransitionSystem from a model file.
 
     Args:
         model_path: Path to the .simasm model file
@@ -110,7 +113,7 @@ def run_model_trace(
         end_time: Simulation end time
 
     Returns:
-        tuple: (Trace, raw_states list)
+        TransitionSystem ready for product construction
     """
     print(f"  Loading {model_name} from {Path(model_path).name}...")
 
@@ -135,38 +138,8 @@ def run_model_trace(
         config=config,
     )
 
-    # Collect trace
-    trace = Trace()
-    raw_states = []
-
-    # Record initial state
-    initial_labels = labeling.evaluate(loaded.state)
-    initial_time = loaded.state.get_var("sim_clocktime") or 0.0
-    trace.append(initial_labels)
-    raw_states.append({
-        "step": 0,
-        "time": initial_time,
-        "labels": sorted(l.name for l in initial_labels)
-    })
-
-    # Run and collect
-    step = 0
-    while stepper.can_step():
-        stepper.step()
-        step += 1
-
-        labels = labeling.evaluate(loaded.state)
-        sim_time = loaded.state.get_var("sim_clocktime") or 0.0
-
-        trace.append(labels)
-        raw_states.append({
-            "step": step,
-            "time": sim_time,
-            "labels": sorted(l.name for l in labels)
-        })
-
-    print(f"    Completed: {step} steps, final time {sim_time:.4f}")
-    return trace, raw_states
+    # Wrap in TransitionSystem
+    return TransitionSystem(stepper, labeling)
 
 
 def run_single_seed_verification(
@@ -177,7 +150,10 @@ def run_single_seed_verification(
     verbose: bool = False
 ) -> dict:
     """
-    Run verification for a single seed.
+    Run verification for a single seed using the product transition system.
+
+    Implements Algorithm 1: constructs the augmented product system and
+    steps it until termination or error.
 
     Args:
         spec: VerificationNode specification
@@ -189,36 +165,60 @@ def run_single_seed_verification(
     Returns:
         dict with single-seed verification results
     """
-    model_traces = {}
-    model_raw = {}
-
+    # Build transition systems
+    model_systems = {}
     for model_import in spec.models:
         model_path = base_path / model_import.path
         model_labels = [l for l in spec.labels if l.model == model_import.name]
 
-        trace, raw = run_model_trace(
+        ts = build_transition_system(
             str(model_path),
             model_import.name,
             model_labels,
             seed,
             end_time
         )
+        model_systems[model_import.name] = ts
 
-        model_traces[model_import.name] = trace
-        model_raw[model_import.name] = raw
-
-    model_names = list(model_traces.keys())
+    model_names = list(model_systems.keys())
     name_a, name_b = model_names[0], model_names[1]
-    trace_a, trace_b = model_traces[name_a], model_traces[name_b]
+    ts_a, ts_b = model_systems[name_a], model_systems[name_b]
 
+    # Construct and run the augmented product transition system (Algorithm 1)
+    try:
+        product = ProductTransitionSystem(ts_a, ts_b)
+    except ValueError:
+        # Initial labels differ — not equivalent
+        return {
+            "seed": seed,
+            "is_equivalent": False,
+            "models": {
+                name_a: {
+                    "raw_trace_length": 1,
+                    "no_stutter_length": 1,
+                    "stutter_steps": 0
+                },
+                name_b: {
+                    "raw_trace_length": 1,
+                    "no_stutter_length": 1,
+                    "stutter_steps": 0
+                }
+            },
+            "product_steps": 0,
+            "final_phase": "initial_label_mismatch",
+        }
+
+    reached_error, steps = product.run()
+
+    # Extract trace statistics from the product's projection traces
+    trace_a = product.trace_a
+    trace_b = product.trace_b
     ns_a = no_stutter_trace(trace_a)
     ns_b = no_stutter_trace(trace_b)
 
-    are_equivalent = traces_stutter_equivalent(trace_a, trace_b)
-
     return {
         "seed": seed,
-        "is_equivalent": are_equivalent,
+        "is_equivalent": not reached_error,
         "models": {
             name_a: {
                 "raw_trace_length": len(trace_a),
@@ -231,8 +231,8 @@ def run_single_seed_verification(
                 "stutter_steps": count_stutter_steps(trace_b)
             }
         },
-        "ns_trace_a": ns_a,
-        "ns_trace_b": ns_b,
+        "product_steps": steps,
+        "final_phase": str(product.phase),
     }
 
 
@@ -309,26 +309,17 @@ def run_verification(spec_path: str, end_time: float = 10.0, verbose: bool = Tru
         }
     }
 
-    # Show detailed comparison for first seed if verbose
+    # Show product details for first seed if verbose
     if verbose and seed_results:
         first_result = seed_results[0]
-        ns_a = first_result["ns_trace_a"]
-        ns_b = first_result["ns_trace_b"]
-
-        print(f"\nNo-stutter trace comparison for seed {spec.seeds[0]} (first 15 positions):")
-        print("-" * 80)
-
-        max_positions = min(len(ns_a), len(ns_b), 15)
-
-        for i in range(max_positions):
-            labels_a = sorted(l.name for l in ns_a[i])
-            labels_b = sorted(l.name for l in ns_b[i])
-            match = "MATCH" if ns_a[i] == ns_b[i] else "DIFFER"
-            print(f"  {i:3d}: {name_a}={{{', '.join(labels_a)}}}")
-            print(f"       {name_b}={{{', '.join(labels_b)}}} [{match}]")
-
-        if max_positions < len(ns_a) or max_positions < len(ns_b):
-            print(f"  ... ({max(len(ns_a), len(ns_b)) - max_positions} more positions)")
+        print(f"\nProduct system details for seed {spec.seeds[0]}:")
+        print(f"  Product steps: {first_result.get('product_steps', 'N/A')}")
+        print(f"  Final phase: {first_result.get('final_phase', 'N/A')}")
+        for mn in [name_a, name_b]:
+            stats = first_result["models"][mn]
+            print(f"  {mn}: {stats['raw_trace_length']} raw steps, "
+                  f"{stats['no_stutter_length']} ns-labels, "
+                  f"{stats['stutter_steps']} stutter steps")
 
     # Final result
     print("\n" + "=" * 70)

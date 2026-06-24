@@ -2,7 +2,7 @@
 DFS fundamental cycle detection on the scheduling subgraph.
 
 Implements the algorithm from the SMC draft:
-- DFS from source vertex (or all roots for disconnected graphs)
+- DFS from source vertex
 - Back edges define fundamental cycles
 - Each cycle = (vertices_in_order, edges_in_order)
 """
@@ -137,7 +137,7 @@ def _build_cycle_infos(
         if period <= 0:
             if skip_zero_period:
                 continue
-            zero_verts = " -> ".join(verts)
+            zero_verts = " → ".join(verts)
             raise ValueError(
                 f"Cycle c{idx+1} [{zero_verts}] has zero period. "
                 f"Every cycle must contain at least one positive-delay edge "

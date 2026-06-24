@@ -741,6 +741,9 @@ class HETCalculator:
         # ACD control rules (three-phase scanning algorithm)
         'scanning_phase_single', 'scanning_phase',
         'timing_phase', 'executing_phase',
+        # DEVS control rules (abstract simulator algorithm)
+        'select_imminent', 'route_output', 'update_event_list',
+        'simulator_step',
     }
 
     def is_control_rule(self, rule_name: str) -> bool:

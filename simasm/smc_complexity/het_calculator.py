@@ -12,7 +12,7 @@ Includes overhead costs: seq (+1), if (+1), new (=3), lib dispatch (+2).
 """
 
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Tuple, Union
 
 from simasm.parser.parser import parse_file, parse_string
 from simasm.parser.ast import Program, RuleDecl, MainRuleDecl, InitBlock
@@ -25,7 +25,7 @@ from simasm.core.rules import (
     Stmt, SkipStmt, UpdateStmt, SeqStmt, IfStmt,
     WhileStmt, ForallStmt, LetStmt, RuleCallStmt, PrintStmt,
     ChooseStmt, ParStmt,
-    LibCallStmt as LibCallStatement, RndCallStmt as RndCallStatement,
+    LibCallStmt, RndCallStmt as RndCallStatement,
 )
 
 CONTROL_RULE_NAMES = {
@@ -33,16 +33,12 @@ CONTROL_RULE_NAMES = {
     "timing_routine", "event_routine", "main",
 }
 
-# Control overhead constants
-C_STEP = 65       # Next-event algorithm step cost
-C_INIT = 30       # Initialization cost
-C_PM = 27         # Phase manager cost
-C_PINIT = 24      # Phase init cost
-C_PT = 26         # Phase timing cost
-C_PD = 12         # Phase dispatch cost
-
-# Control overhead for SMC v10: C_ctrl = C_STEP + C_PINIT = 89
-C_CTRL = C_STEP + C_PINIT
+C_STEP = 65
+C_INIT = 30
+C_PM = 27
+C_PINIT = 24
+C_PT = 26
+C_PD = 12
 
 
 def compute_event_het(
@@ -51,7 +47,7 @@ def compute_event_het(
     """
     Parse a .simasm file and compute HET for each event rule.
 
-    Returns dict mapping rule name -> HET cost.
+    Returns dict mapping rule name → HET cost.
     Only event rules are included (control rules excluded).
     """
     program = parse_file(str(simasm_path))
@@ -197,7 +193,7 @@ def _cost_stmt(stmt: Stmt) -> int:
     if isinstance(stmt, RuleCallStmt):
         return 1
 
-    if isinstance(stmt, LibCallStatement):
+    if isinstance(stmt, LibCallStmt):
         return 1 + sum(_cost_term(a) for a in stmt.arguments) + 2  # dispatch overhead
 
     if isinstance(stmt, RndCallStatement):

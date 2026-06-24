@@ -40,7 +40,7 @@ Alternative: Jupyter/Colab cell magics:
     ...
 """
 
-__version__ = "0.5.3"
+__version__ = "0.8.0"
 __author__ = "Steve Yeo"
 
 

@@ -227,6 +227,25 @@ class TimeseriesPlotConfigNode:
 
 
 @dataclass
+class ExtractorNode:
+    """
+    Extractor definition for MSRE verification.
+
+    Extracts a numeric value from model state at tick boundaries
+    for exact-count comparison (optional diagnostic complement to
+    boolean label-based MSRE).
+
+    Attributes:
+        name: Extractor name (matched across models)
+        model: Model name (must match a ModelImportNode.name)
+        expression: Numeric expression to evaluate on model state
+    """
+    name: str
+    model: str
+    expression: str
+
+
+@dataclass
 class VerificationCheckNode:
     """
     Verification check settings from DSL.
@@ -284,6 +303,7 @@ class VerificationNode:
     labels: List[LabelNode] = field(default_factory=list)
     observables: List[ObservableNode] = field(default_factory=list)
     timeseries_observables: List[TimeseriesObservableNode] = field(default_factory=list)
+    extractors: List[ExtractorNode] = field(default_factory=list)
     check: VerificationCheckNode = field(default_factory=VerificationCheckNode)
     output: VerificationOutputNode = field(default_factory=VerificationOutputNode)
     timeseries_plot_config: Optional[TimeseriesPlotConfigNode] = None

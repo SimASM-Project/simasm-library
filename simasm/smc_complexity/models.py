@@ -1,17 +1,9 @@
 """
-Data classes for SMC v10 complexity analysis.
-
-SMC(G) = C_ctrl + Sigma_v rate(v) * deg*(v) * C(P_E,v)
-
-Where:
-- C_ctrl = 89 (fixed control overhead: C_STEP + C_PINIT)
-- rate(v) = min(rate_raw(v), lambda_max) -- firing rate with source-rate cap
-- deg*(v) = max(1, d_in(v) + d_out(v)) -- scheduling subgraph degree
-- C(P_E,v) = HET cost of event rule at vertex v
+Data classes for SMC cycle-rate complexity analysis.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 @dataclass
@@ -49,27 +41,23 @@ class CycleInfo:
 
 
 @dataclass
-class VertexDetail:
-    """Per-vertex breakdown for SMC v10."""
-    name: str
-    het_cost: int
-    rate: float
-    degree: int
-    contribution: float
-
-
-@dataclass
 class SMCResult:
-    """Complete SMC v10 analysis result."""
+    """Complete SMC analysis result."""
     model_name: str
+    event_het: Dict[str, int]
+    c_step: int
+    c_init: int
+    cycles: List[CycleInfo]
+    num_cycles: int
+    scr: float
     smc: float
-    control_overhead: int
-    vertex_details: List[VertexDetail]
-    # Additional diagnostics
-    event_het: Dict[str, int] = field(default_factory=dict)
-    cycles: List[CycleInfo] = field(default_factory=list)
-    num_cycles: int = 0
-    source_rate: float = 0.0
+    t_sim: float
+    smc_original: int
+    smc_fan_weighted: int = 0
+    smc_degree_weighted: int = 0
+    smc_rate_structural: float = 0.0
+    smc_per_vertex_rate: float = 0.0
+    smc_v11: float = 0.0
+    computation_time_ms: float = 0.0
     vertex_count: int = 0
     edge_count: int = 0
-    computation_time_ms: float = 0.0

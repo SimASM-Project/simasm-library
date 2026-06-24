@@ -243,55 +243,160 @@ class SimASMMagics(Magics):
             parser = VerificationParser()
             spec = parser.parse(cell)
 
-            # Check if models are in registry and prepare temp files
-            models_in_registry = []
-            for model_import in spec.models:
-                if get_model(model_import.path) is not None:
-                    models_in_registry.append(model_import)
+            # Resolve base path
+            base_path = Path.cwd()
+            if self.shell is not None:
+                try:
+                    notebook_path = self.shell.user_ns.get('__session__', None)
+                    if notebook_path:
+                        base_path = Path(notebook_path).parent
+                except Exception:
+                    pass
 
-            if models_in_registry:
-                return self._run_verification_with_memory_models(spec)
-            else:
-                # All models are file paths
-                engine = VerificationEngine(spec)
+            # Write registry models to temp files so all paths are on disk
+            self._resolve_registry_models(spec)
 
-                def progress(model_name, message):
-                    print(f"  {model_name}: {message}")
-
-                result = engine.run(progress_callback=progress)
-
+            # Dispatch based on check type
+            if spec.check.check_type == "macro_step_refinement":
+                result = self._run_msre_verification(spec, base_path)
                 return self._display_verification_result(result)
+
+            # Default: stutter equivalence via VerificationEngine
+            engine = VerificationEngine(spec, base_path=base_path)
+
+            def progress(model_name, message):
+                print(f"  {model_name}: {message}")
+
+            result = engine.run(progress_callback=progress)
+
+            return self._display_verification_result(result)
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             return self._display_error(f"Verification error: {e}")
 
-    def _run_verification_with_memory_models(self, spec):
-        """Run verification using in-memory models."""
-        from simasm.experimenter.engine import VerificationEngine
-
-        # Create temp directory if needed
-        if self._temp_dir is None:
-            self._temp_dir = tempfile.mkdtemp(prefix="simasm_")
-
-        # Write each in-memory model to temp file
+    def _resolve_registry_models(self, spec):
+        """Write any registry-based models to temp files, updating spec paths in place."""
         for model_import in spec.models:
             model_source = get_model(model_import.path)
             if model_source is not None:
+                if self._temp_dir is None:
+                    self._temp_dir = tempfile.mkdtemp(prefix="simasm_")
                 model_file = Path(self._temp_dir) / f"{model_import.path}.simasm"
                 model_file.write_text(model_source, encoding='utf-8')
                 model_import.path = str(model_file)
 
-        # Run verification
-        engine = VerificationEngine(spec, base_path=Path(self._temp_dir))
+    def _run_msre_verification(self, spec, base_path):
+        """Run macro-step refinement equivalence verification."""
+        import time as time_module
+        from simasm.experimenter.engine import (
+            TraceVerificationResult, VerificationStatus,
+        )
+        from simasm.verification.msre import MacroStepRefinementVerifier
+        from simasm.verification.run_verification import build_transition_system
 
-        def progress(model_name, message):
-            print(f"  {model_name}: {message}")
+        start_time = time_module.time()
+        end_time = spec.check.run_length
+        seeds = spec.seeds
+        max_boundaries = spec.check.k_max
 
-        result = engine.run(progress_callback=progress)
+        if len(spec.models) != 2:
+            raise ValueError(
+                f"MSRE verification requires exactly 2 models, got {len(spec.models)}"
+            )
 
-        return self._display_verification_result(result)
+        model_a, model_b = spec.models[0], spec.models[1]
+
+        labels_a = [l for l in spec.labels if l.model == model_a.name]
+        labels_b = [l for l in spec.labels if l.model == model_b.name]
+
+        equivalent_count = 0
+        failed_seeds = []
+        all_steps_a = []
+        all_steps_b = []
+        all_boundaries = []
+
+        for i, seed in enumerate(seeds):
+            print(f"  [{i+1}/{len(seeds)}] Seed {seed}...", end="", flush=True)
+            t0 = time_module.time()
+
+            path_a = Path(model_a.path)
+            if not path_a.is_absolute():
+                path_a = base_path / path_a
+            path_b = Path(model_b.path)
+            if not path_b.is_absolute():
+                path_b = base_path / path_b
+
+            ts_a = build_transition_system(
+                str(path_a), model_a.name, labels_a, seed, end_time,
+            )
+            ts_b = build_transition_system(
+                str(path_b), model_b.name, labels_b, seed, end_time,
+            )
+
+            verifier = MacroStepRefinementVerifier(ts_a, ts_b)
+            result = verifier.verify(seed=seed, max_boundaries=max_boundaries)
+            elapsed = time_module.time() - t0
+
+            all_steps_a.append(result.total_steps_a)
+            all_steps_b.append(result.total_steps_b)
+            all_boundaries.append(result.boundaries_checked)
+
+            if result.is_equivalent:
+                equivalent_count += 1
+                summary = result.step_profile_summary
+                m_mean = summary.get("m_mean", 0)
+                n_mean = summary.get("n_mean", 0)
+                print(f" EQUIVALENT ({result.boundaries_checked} boundaries, "
+                      f"m={m_mean:.1f} n={n_mean:.1f}, {elapsed:.1f}s)")
+            else:
+                failed_seeds.append(seed)
+                print(f" NOT EQUIVALENT (k={result.failure.boundary_k}, "
+                      f"reason={result.failure.reason})")
+
+        total_elapsed = time_module.time() - start_time
+        is_equivalent = len(failed_seeds) == 0
+        n = len(seeds)
+
+        if is_equivalent:
+            msg = (f"Models are MACRO-STEP REFINEMENT EQUIVALENT "
+                   f"(verified over {end_time}s simulation, {n} seed(s))")
+        else:
+            msg = (f"Models are NOT macro-step refinement equivalent "
+                   f"({equivalent_count}/{n} seeds equivalent, "
+                   f"failed: {failed_seeds})")
+
+        model_stats = {
+            model_a.name: {
+                "raw_length": int(sum(all_steps_a) / n) if n else 0,
+                "ns_length": int(sum(all_boundaries) / n) if n else 0,
+                "stutter_steps": int((sum(all_steps_a) - sum(all_boundaries)) / n) if n else 0,
+            },
+            model_b.name: {
+                "raw_length": int(sum(all_steps_b) / n) if n else 0,
+                "ns_length": int(sum(all_boundaries) / n) if n else 0,
+                "stutter_steps": int((sum(all_steps_b) - sum(all_boundaries)) / n) if n else 0,
+            },
+        }
+
+        model_timing = {
+            model_a.name: {"total_time_sec": total_elapsed / 2},
+            model_b.name: {"total_time_sec": total_elapsed / 2},
+        }
+
+        return TraceVerificationResult(
+            is_equivalent=is_equivalent,
+            status=VerificationStatus.EQUIVALENT if is_equivalent else VerificationStatus.NOT_EQUIVALENT,
+            model_stats=model_stats,
+            model_timing=model_timing,
+            first_difference_pos=None,
+            time_elapsed=total_elapsed,
+            message=msg,
+            num_seeds=n,
+            equivalent_count=equivalent_count,
+            failed_seeds=failed_seeds,
+        )
 
     def _handle_convert(self, args: list, cell: str):
         """Handle %%simasm convert"""

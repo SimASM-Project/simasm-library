@@ -334,8 +334,19 @@ class KInductionVerifier:
             
             # Check if we can continue
             if not product.can_step():
-                # Systems terminated without ERROR
                 elapsed = time.time() - self._start_time
+                # Terminal check: if loop ended in a leads phase, one system
+                # produced an effective step that the other can never match.
+                if not product.is_sync():
+                    self._report_progress(k, self._total_steps, "Terminated in leads phase - not equivalent")
+                    return VerificationResult(
+                        status=VerificationStatus.NOT_EQUIVALENT,
+                        k_reached=k,
+                        steps_explored=self._total_steps,
+                        counterexample=product.get_counterexample(),
+                        time_elapsed=elapsed,
+                        message=f"Terminated in leads phase after {k} steps (unresolved divergence)"
+                    )
                 self._report_progress(k, self._total_steps, "Systems terminated - equivalent")
                 return VerificationResult(
                     status=VerificationStatus.EQUIVALENT,

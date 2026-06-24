@@ -187,14 +187,23 @@ def build_component_het(event_het: Dict[str, int]) -> Dict[str, int]:
       - output_function_{name}
 
     Combines all three into a single component HET entry.
+
+    Note: event_het stores each rule under multiple keys (original case
+    and lowercase) for flexible matching. Deduplicate by using only
+    lowercase keys to avoid counting each rule twice.
     """
+    # Deduplicate: event_het has both original and lowercase keys
+    deduped: Dict[str, int] = {}
+    for rule_name, het in event_het.items():
+        key = rule_name.lower()
+        deduped[key] = het
+
     component_het: Dict[str, int] = {}
 
-    for rule_name, het in event_het.items():
-        name_lower = rule_name.lower()
+    for rule_name, het in deduped.items():
         for prefix in ('internal_transition_', 'external_transition_', 'output_function_'):
-            if name_lower.startswith(prefix):
-                comp_name = name_lower[len(prefix):]
+            if rule_name.startswith(prefix):
+                comp_name = rule_name[len(prefix):]
                 if comp_name not in component_het:
                     component_het[comp_name] = 0
                 component_het[comp_name] += het

@@ -14,7 +14,7 @@ Based on: Nowack (2000) "Complexity Theory via Abstract State Machines"
 Usage:
     python validate_complexity_metrics.py
     python validate_complexity_metrics.py --end-time 500.0 --seeds 42,123,456
-    python validate_complexity_metrics.py --output simasm/output/complexity_validation/
+    python validate_complexity_metrics.py --output experiments/project_2/validation/results/complexity_validation/
 """
 
 import sys
@@ -45,12 +45,12 @@ from simasm.runtime.stepper import ASMStepper, StepperConfig
 # =============================================================================
 
 # Model paths
-BASE_DIR = Path(__file__).parent.parent / "input" / "project_2" / "tandem_n_queue"
+BASE_DIR = Path(__file__).resolve().parents[2] / "experiments" / "project_2" / "misc" / "json_models" / "tandem_n_queue"
 EG_DIR = BASE_DIR / "generated" / "eg"
 ACD_DIR = BASE_DIR / "generated" / "acd"
 
 # Default output directory
-DEFAULT_OUTPUT_DIR = Path(__file__).parent.parent / "output" / "complexity_validation"
+DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parents[2] / "experiments" / "project_2" / "validation" / "results" / "complexity_validation"
 
 # N values for tandem queue models
 N_VALUES = [1, 3, 5, 10, 20]
@@ -702,7 +702,7 @@ def main():
         "--output",
         type=str,
         default=None,
-        help="Output directory (default: simasm/output/complexity_validation/)"
+        help="Output directory (default: experiments/project_2/validation/results/complexity_validation/)"
     )
     parser.add_argument(
         "--no-plots",

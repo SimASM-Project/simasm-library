@@ -3,8 +3,8 @@ Resolve edge delay expressions to their expected (mean) values.
 
 Supports:
 - Numeric literals: 0, 5.0
-- Random stream names: "interarrival_time" -> look up distribution mean
-- Parameter names: "setup_time" -> look up parameter value
+- Random stream names: "interarrival_time" → look up distribution mean
+- Parameter names: "setup_time" → look up parameter value
 """
 
 from typing import Dict
@@ -39,10 +39,10 @@ def resolve_mean_delay(
     Resolve a delay expression to its mean value.
 
     Resolution order:
-    1. Numeric literal -> float(value)
-    2. Random stream name -> distribution mean
-    3. Parameter name -> parameter value
-    4. Unknown -> 0.0
+    1. Numeric literal → float(value)
+    2. Random stream name → distribution mean
+    3. Parameter name → parameter value
+    4. Unknown → 0.0
     """
     delay_expr = delay_expr.strip()
 

@@ -21,6 +21,7 @@ from .ast import (
     ObservableNode,
     TimeseriesObservableNode,
     TimeseriesPlotConfigNode,
+    ExtractorNode,
     VerificationCheckNode,
     VerificationOutputNode,
     VerificationNode,
@@ -382,9 +383,21 @@ class ExperimentTransformer(Transformer):
         return [c for c in children if isinstance(c, ObservableNode)]
     
     # =========================================================================
+    # Verification: Extractors Block
+    # =========================================================================
+
+    def extractor_def(self, children: List[Any]) -> ExtractorNode:
+        """Handle extract Name for Model: "expression" """
+        return ExtractorNode(name=children[0], model=children[1], expression=children[2])
+
+    def extractors_block(self, children: List[Any]) -> List[ExtractorNode]:
+        """Collect all extractor definitions."""
+        return [c for c in children if isinstance(c, ExtractorNode)]
+
+    # =========================================================================
     # Verification: Check Block
     # =========================================================================
-    
+
     def check_type(self, children: List[Any]) -> Dict[str, str]:
         """Handle type: stutter_equivalence"""
         return {"check_type": children[0]}
@@ -552,6 +565,7 @@ class ExperimentTransformer(Transformer):
             "labels": [],
             "observables": [],
             "timeseries_observables": [],
+            "extractors": [],
             "check": VerificationCheckNode(),
             "output": VerificationOutputNode(),
             "timeseries_plot_config": None,
@@ -567,15 +581,15 @@ class ExperimentTransformer(Transformer):
                     result["observables"] = child
                 elif child and isinstance(child[0], TimeseriesObservableNode):
                     result["timeseries_observables"] = child
+                elif child and isinstance(child[0], ExtractorNode):
+                    result["extractors"] = child
                 elif child and isinstance(child[0], int):
-                    # List of seeds from single_seed, multi_seed, or seed_range
                     result["seeds"] = child
             elif isinstance(child, VerificationCheckNode):
                 result["check"] = child
             elif isinstance(child, VerificationOutputNode):
                 result["output"] = child
             elif isinstance(child, dict):
-                # Output block now returns dict with output and timeseries_plot_config
                 if "output" in child:
                     result["output"] = child["output"]
                 if "timeseries_plot_config" in child and child["timeseries_plot_config"] is not None:
@@ -595,6 +609,7 @@ class ExperimentTransformer(Transformer):
             labels=body["labels"],
             observables=body["observables"],
             timeseries_observables=body["timeseries_observables"],
+            extractors=body["extractors"],
             check=body["check"],
             output=body["output"],
             timeseries_plot_config=body["timeseries_plot_config"],

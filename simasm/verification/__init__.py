@@ -108,6 +108,14 @@ from .trace_plotting import (
     plot_timeseries_with_annotations,
 )
 
+from .msre import (
+    MSREBoundary,
+    MSREFailure,
+    MSREResult,
+    MacroStepRefinementVerifier,
+    verify_msre,
+)
+
 __all__ = [
     # label.py
     'Label',
@@ -180,4 +188,10 @@ __all__ = [
     'plot_trace_comparison_grid',
     'plot_single_trace_comparison',
     'plot_timeseries_with_annotations',
+    # msre.py
+    'MSREBoundary',
+    'MSREFailure',
+    'MSREResult',
+    'MacroStepRefinementVerifier',
+    'verify_msre',
 ]

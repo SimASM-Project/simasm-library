@@ -681,10 +681,12 @@ def run_experiment_from_node(
 from dataclasses import dataclass, field
 from enum import Enum
 
-from simasm.verification.label import Label, LabelingFunction
+from simasm.verification.label import LabelingFunction
 from simasm.verification.trace import (
-    Trace, no_stutter_trace, traces_stutter_equivalent, count_stutter_steps
+    Trace, no_stutter_trace, count_stutter_steps
 )
+from simasm.verification.ts import TransitionSystem
+from simasm.verification.product import ProductTransitionSystem
 
 from .ast import (
     VerificationNode,
@@ -698,7 +700,7 @@ from .ast import (
 )
 from .transformer import VerificationParser
 
-from simasm.verification.numeric_trace import NumericTrace, NumericTraceResult
+from simasm.verification.numeric_trace import NumericTrace
 
 
 class VerificationStatus(Enum):
@@ -760,14 +762,16 @@ class TraceVerificationResult:
 
 class VerificationEngine:
     """
-    Engine that executes verification specifications via trace comparison.
+    Engine that executes verification specifications via the product
+    transition system (Algorithm 1, Theorem 1).
 
     Orchestrates:
     1. Parse verification specification
     2. Load models with same seed
-    3. Run models and collect traces with labeling functions
-    4. Compute no-stutter traces and compare
-    5. Output results
+    3. Build transition systems with labeling functions
+    4. Construct the augmented product transition system
+    5. Verify stutter equivalence via the product safety invariant
+    6. Output results
 
     Usage:
         engine = VerificationEngine("verify/eg_vs_acd.simasm")
@@ -821,7 +825,8 @@ class VerificationEngine:
         progress_callback=None,
     ) -> TraceVerificationResult:
         """
-        Run W-stutter equivalence verification via trace comparison.
+        Run W-stutter equivalence verification via the augmented product
+        transition system (Algorithm 1).
 
         Supports multi-seed verification: if spec.seeds has multiple seeds,
         runs verification for all seeds and reports aggregate results.
@@ -860,83 +865,84 @@ class VerificationEngine:
         progress_callback,
         start_time: float,
     ) -> TraceVerificationResult:
-        """Run verification for a single seed."""
+        """Run verification for a single seed using the product transition system."""
         import time as time_module
 
-        # Run each model and collect traces
         model_stats = {}
         model_timing = {}
 
-        for model_import in self._spec.models:
-            model_path = self._resolve_path(model_import.path, is_model=True)
-            logger.info(f"Running model '{model_import.name}' from {model_path}")
+        # Build transition systems for both models
+        model_imports = list(self._spec.models)
+        name_a, name_b = model_imports[0].name, model_imports[1].name
 
-            if progress_callback:
-                progress_callback(model_import.name, "Loading model...")
+        if progress_callback:
+            progress_callback(name_a, "Loading model...")
 
-            # Get labels for this model
-            model_labels = [l for l in self._spec.labels if l.model == model_import.name]
+        ts_a, load_time_a = self._build_transition_system(model_imports[0], seed, end_time)
 
-            # Get numeric observables for this model
-            model_numeric_obs = [
-                obs for obs in self._spec.timeseries_observables
-                if obs.model == model_import.name
-            ]
+        if progress_callback:
+            progress_callback(name_b, "Loading model...")
 
-            # Run and collect trace
-            trace, raw_stats, numeric_traces = self._run_model_trace(
-                str(model_path),
-                model_import.name,
-                model_labels,
-                seed,
-                end_time,
-                numeric_observables=model_numeric_obs if model_numeric_obs else None,
+        ts_b, load_time_b = self._build_transition_system(model_imports[1], seed, end_time)
+
+        model_timing[name_a] = {"load_time_sec": load_time_a}
+        model_timing[name_b] = {"load_time_sec": load_time_b}
+
+        # Construct and run the augmented product transition system (Algorithm 1)
+        exec_start = time_module.perf_counter()
+
+        try:
+            product = ProductTransitionSystem(ts_a, ts_b, record_path=False)
+        except ValueError:
+            # Assumption 1 violation: initial labels differ
+            elapsed = time_module.time() - start_time
+            for name in [name_a, name_b]:
+                model_stats[name] = {"raw_length": 1, "ns_length": 1, "stutter_steps": 0, "steps": 0}
+                model_timing[name]["exec_time_sec"] = 0.0
+                model_timing[name]["total_time_sec"] = model_timing[name]["load_time_sec"]
+            self._result = TraceVerificationResult(
+                is_equivalent=False,
+                status=VerificationStatus.NOT_EQUIVALENT,
+                model_stats=model_stats,
+                model_timing=model_timing,
+                first_difference_pos=0,
+                time_elapsed=elapsed,
+                message="Models are NOT W-stutter equivalent (initial labels differ)",
             )
+            return self._result
 
-            self._model_traces[model_import.name] = trace
-            model_stats[model_import.name] = raw_stats
+        reached_error, product_steps = product.run()
+        exec_time = time_module.perf_counter() - exec_start
 
-            # Extract timing data
-            model_timing[model_import.name] = {
-                "load_time_sec": raw_stats["load_time_sec"],
-                "exec_time_sec": raw_stats["exec_time_sec"],
-                "total_time_sec": raw_stats["total_time_sec"],
+        is_equivalent = not reached_error
+
+        # Extract trace statistics from product projections
+        trace_a = product.trace_a
+        trace_b = product.trace_b
+        self._model_traces[name_a] = trace_a
+        self._model_traces[name_b] = trace_b
+
+        ns_a = no_stutter_trace(trace_a)
+        ns_b = no_stutter_trace(trace_b)
+        self._ns_traces[name_a] = ns_a
+        self._ns_traces[name_b] = ns_b
+
+        for name, trace, ns in [(name_a, trace_a, ns_a), (name_b, trace_b, ns_b)]:
+            model_stats[name] = {
+                "raw_length": len(trace),
+                "ns_length": len(ns),
+                "stutter_steps": count_stutter_steps(trace),
+                "steps": len(trace) - 1,
             }
-
-            # Store numeric traces
-            if numeric_traces:
-                if model_import.name not in self._numeric_traces:
-                    self._numeric_traces[model_import.name] = {}
-                for obs_name, num_trace in numeric_traces.items():
-                    if obs_name not in self._numeric_traces[model_import.name]:
-                        self._numeric_traces[model_import.name][obs_name] = {}
-                    self._numeric_traces[model_import.name][obs_name][seed] = num_trace
-
-            if progress_callback:
-                progress_callback(model_import.name, f"Completed {raw_stats['steps']} steps")
-
-        # Compute no-stutter traces
-        logger.info("Computing no-stutter traces...")
-        for name, trace in self._model_traces.items():
-            ns = no_stutter_trace(trace)
-            self._ns_traces[name] = ns
-            model_stats[name]["raw_length"] = len(trace)
-            model_stats[name]["ns_length"] = len(ns)
-            model_stats[name]["stutter_steps"] = count_stutter_steps(trace)
+            model_timing[name]["exec_time_sec"] = exec_time
+            model_timing[name]["total_time_sec"] = model_timing[name]["load_time_sec"] + exec_time
             logger.info(
                 f"  {name}: {len(trace)} raw -> {len(ns)} no-stutter "
                 f"({model_stats[name]['stutter_steps']} stutter steps)"
             )
 
-        # Compare no-stutter traces
-        model_names = list(self._ns_traces.keys())
-        name_a, name_b = model_names[0], model_names[1]
-        ns_a, ns_b = self._ns_traces[name_a], self._ns_traces[name_b]
-
-        is_equivalent = traces_stutter_equivalent(
-            self._model_traces[name_a],
-            self._model_traces[name_b]
-        )
+        if progress_callback:
+            progress_callback("Product", f"Completed {product_steps} product steps")
 
         # Find first difference position if not equivalent
         first_diff = None
@@ -953,10 +959,11 @@ class VerificationEngine:
         # Build result
         if is_equivalent:
             status = VerificationStatus.EQUIVALENT
-            message = f"Models are W-STUTTER EQUIVALENT (verified over {end_time}s simulation)"
+            message = f"Models are W-STUTTER EQUIVALENT (product verification, {end_time}s simulation)"
         else:
             status = VerificationStatus.NOT_EQUIVALENT
-            message = f"Models are NOT W-stutter equivalent (first difference at position {first_diff})"
+            phase_info = str(product.phase)
+            message = f"Models are NOT W-stutter equivalent (final phase: {phase_info}, first difference at no-stutter position {first_diff})"
 
         self._result = TraceVerificationResult(
             is_equivalent=is_equivalent,
@@ -992,13 +999,16 @@ class VerificationEngine:
         progress_callback,
         start_time: float,
     ) -> TraceVerificationResult:
-        """Run verification for multiple seeds and aggregate results."""
+        """Run verification for multiple seeds using the product transition system."""
         import time as time_module
 
-        logger.info(f"Running multi-seed verification for {len(seeds)} seeds")
+        logger.info(f"Running multi-seed product verification for {len(seeds)} seeds")
 
         if progress_callback:
             progress_callback("Multi-seed", f"Running {len(seeds)} seeds...")
+
+        model_imports = list(self._spec.models)
+        name_a, name_b = model_imports[0].name, model_imports[1].name
 
         per_seed_stats = []
         failed_seeds = []
@@ -1007,80 +1017,68 @@ class VerificationEngine:
             if progress_callback:
                 progress_callback("Multi-seed", f"Seed {seed} ({i+1}/{len(seeds)})...")
 
-            # Clear traces for each seed
-            self._model_traces = {}
-            self._ns_traces = {}
+            # Build transition systems for this seed
+            ts_a, load_time_a = self._build_transition_system(model_imports[0], seed, end_time)
+            ts_b, load_time_b = self._build_transition_system(model_imports[1], seed, end_time)
 
-            # Run each model with this seed
+            seed_timing = {
+                name_a: {"load_time_sec": load_time_a},
+                name_b: {"load_time_sec": load_time_b},
+            }
+
+            # Run product verification
+            exec_start = time_module.perf_counter()
+
+            try:
+                product = ProductTransitionSystem(ts_a, ts_b, record_path=False)
+                reached_error, product_steps = product.run()
+                seed_equivalent = not reached_error
+            except ValueError:
+                seed_equivalent = False
+                product_steps = 0
+
+            exec_time = time_module.perf_counter() - exec_start
+
+            # Extract trace statistics
             model_stats = {}
-            seed_timing = {}
-            for model_import in self._spec.models:
-                model_path = self._resolve_path(model_import.path, is_model=True)
-                model_labels = [l for l in self._spec.labels if l.model == model_import.name]
+            if seed_equivalent or product_steps > 0:
+                trace_a = product.trace_a
+                trace_b = product.trace_b
+                ns_a = no_stutter_trace(trace_a)
+                ns_b = no_stutter_trace(trace_b)
 
-                # Get numeric observables for this model
-                model_numeric_obs = [
-                    obs for obs in self._spec.timeseries_observables
-                    if obs.model == model_import.name
-                ]
+                for name, trace, ns in [(name_a, trace_a, ns_a), (name_b, trace_b, ns_b)]:
+                    model_stats[name] = {
+                        "raw_length": len(trace),
+                        "ns_length": len(ns),
+                        "stutter_steps": count_stutter_steps(trace),
+                        "steps": len(trace) - 1,
+                        "product_steps": product_steps,
+                    }
+                    seed_timing[name]["exec_time_sec"] = exec_time
+                    seed_timing[name]["total_time_sec"] = seed_timing[name]["load_time_sec"] + exec_time
+            else:
+                for name in [name_a, name_b]:
+                    model_stats[name] = {
+                        "raw_length": 1, "ns_length": 1, "stutter_steps": 0,
+                        "steps": 0, "product_steps": 0,
+                    }
+                    seed_timing[name]["exec_time_sec"] = exec_time
+                    seed_timing[name]["total_time_sec"] = seed_timing[name]["load_time_sec"] + exec_time
 
-                trace, raw_stats, numeric_traces = self._run_model_trace(
-                    str(model_path),
-                    model_import.name,
-                    model_labels,
-                    seed,
-                    end_time,
-                    numeric_observables=model_numeric_obs if model_numeric_obs else None,
-                )
-
-                self._model_traces[model_import.name] = trace
-                model_stats[model_import.name] = raw_stats
-
-                # Extract timing data for this seed
-                seed_timing[model_import.name] = {
-                    "load_time_sec": raw_stats["load_time_sec"],
-                    "exec_time_sec": raw_stats["exec_time_sec"],
-                    "total_time_sec": raw_stats["total_time_sec"],
-                }
-
-                # Store numeric traces
-                if numeric_traces:
-                    if model_import.name not in self._numeric_traces:
-                        self._numeric_traces[model_import.name] = {}
-                    for obs_name, num_trace in numeric_traces.items():
-                        if obs_name not in self._numeric_traces[model_import.name]:
-                            self._numeric_traces[model_import.name][obs_name] = {}
-                        self._numeric_traces[model_import.name][obs_name][seed] = num_trace
-
-            # Compute no-stutter traces
-            for name, trace in self._model_traces.items():
-                ns = no_stutter_trace(trace)
-                self._ns_traces[name] = ns
-                model_stats[name]["raw_length"] = len(trace)
-                model_stats[name]["ns_length"] = len(ns)
-                model_stats[name]["stutter_steps"] = count_stutter_steps(trace)
-
-            # Compare no-stutter traces
-            model_names = list(self._ns_traces.keys())
-            name_a, name_b = model_names[0], model_names[1]
-
-            is_equivalent = traces_stutter_equivalent(
-                self._model_traces[name_a],
-                self._model_traces[name_b]
-            )
-
-            # Store per-seed stats using the dataclass
             per_seed_stats.append(PerSeedStats(
                 seed=seed,
-                is_equivalent=is_equivalent,
+                is_equivalent=seed_equivalent,
                 model_stats=model_stats.copy(),
                 model_timing=seed_timing.copy(),
             ))
 
-            if not is_equivalent:
+            if not seed_equivalent:
                 failed_seeds.append(seed)
-
-            logger.info(f"  Seed {seed}: {'EQUIVALENT' if is_equivalent else 'NOT EQUIVALENT'}")
+                phase_info = str(product.phase) if product_steps > 0 else "initial_label_mismatch"
+                logger.info(f"  Seed {seed}: NOT EQUIVALENT (phase: {phase_info})")
+            else:
+                logger.info(f"  Seed {seed}: EQUIVALENT ({product_steps} product steps)")
 
         elapsed = time_module.time() - start_time
 
@@ -1089,10 +1087,9 @@ class VerificationEngine:
         equivalent_count = len(seeds) - len(failed_seeds)
 
         # Compute average statistics
-        model_names = list(per_seed_stats[0].model_stats.keys())
         avg_stats = {}
         avg_timing = {}
-        for name in model_names:
+        for name in [name_a, name_b]:
             raw_lengths = [s.model_stats[name]["raw_length"] for s in per_seed_stats]
             ns_lengths = [s.model_stats[name]["ns_length"] for s in per_seed_stats]
             stutter_steps = [s.model_stats[name]["stutter_steps"] for s in per_seed_stats]
@@ -1101,11 +1098,10 @@ class VerificationEngine:
                 "avg_raw_length": sum(raw_lengths) / len(raw_lengths),
                 "avg_ns_length": sum(ns_lengths) / len(ns_lengths),
                 "avg_stutter_steps": sum(stutter_steps) / len(stutter_steps),
-                "raw_length": sum(raw_lengths) / len(raw_lengths),  # For compatibility
-                "ns_length": sum(ns_lengths) / len(ns_lengths),  # For compatibility
+                "raw_length": sum(raw_lengths) / len(raw_lengths),
+                "ns_length": sum(ns_lengths) / len(ns_lengths),
             }
 
-            # Compute average timing
             load_times = [s.model_timing[name]["load_time_sec"] for s in per_seed_stats]
             exec_times = [s.model_timing[name]["exec_time_sec"] for s in per_seed_stats]
             total_times = [s.model_timing[name]["total_time_sec"] for s in per_seed_stats]
@@ -1120,10 +1116,14 @@ class VerificationEngine:
         # Build result
         if all_equivalent:
             status = VerificationStatus.EQUIVALENT
-            message = f"Models are W-STUTTER EQUIVALENT (verified over {len(seeds)} seeds, {end_time}s each)"
+            message = f"Models are W-STUTTER EQUIVALENT (product verification, {len(seeds)} seeds, {end_time}s each)"
         else:
             status = VerificationStatus.NOT_EQUIVALENT
-            message = f"Models are NOT W-stutter equivalent ({equivalent_count}/{len(seeds)} seeds passed, failed: {failed_seeds})"
+            message = (
+                f"Models are NOT W-stutter equivalent "
+                f"({equivalent_count}/{len(seeds)} seeds passed, "
+                f"failed seeds: {failed_seeds})"
+            )
 
         self._result = TraceVerificationResult(
             is_equivalent=all_equivalent,
@@ -1155,6 +1155,51 @@ class VerificationEngine:
             self._write_output()
 
         return self._result
+
+    def _build_transition_system(
+        self,
+        model_import: ModelImportNode,
+        seed: int,
+        end_time: float,
+    ) -> tuple:
+        """
+        Build a TransitionSystem for a model.
+
+        Args:
+            model_import: Model import specification
+            seed: Random seed
+            end_time: Simulation end time
+
+        Returns:
+            Tuple of (TransitionSystem, load_time_sec)
+        """
+        import time as time_module
+
+        model_path = self._resolve_path(model_import.path, is_model=True)
+        model_labels = [l for l in self._spec.labels if l.model == model_import.name]
+
+        logger.info(f"Building TS for '{model_import.name}' from {model_path}")
+
+        load_start = time_module.perf_counter()
+        loaded = load_file(str(model_path), seed=seed)
+        load_time = time_module.perf_counter() - load_start
+
+        labeling = self._create_labeling_function(loaded.term_evaluator, model_labels)
+
+        main_rule = loaded.rules.get(loaded.main_rule_name)
+        config = StepperConfig(
+            time_var="sim_clocktime",
+            end_time=end_time,
+        )
+        stepper = ASMStepper(
+            state=loaded.state,
+            main_rule=main_rule,
+            rule_evaluator=loaded.rule_evaluator,
+            config=config,
+        )
+
+        ts = TransitionSystem(stepper, labeling)
+        return ts, load_time
 
     def _run_model_trace(
         self,
@@ -1260,7 +1305,10 @@ class VerificationEngine:
                         )
                         numeric_traces[obs_name].append(sim_time, float(value))
                     except Exception as e:
-                        pass  # Skip errors during trace collection
+                        logger.warning(
+                            f"Error evaluating numeric observable '{obs_name}' "
+                            f"at step {step}, time {sim_time}: {e}"
+                        )
 
         exec_time = time_module.perf_counter() - exec_start
 

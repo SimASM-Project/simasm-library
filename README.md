@@ -6,7 +6,7 @@ SimASM is a programming language and verification framework that enables:
 
 - Writing discrete-event simulation models using a clean DSL
 - Supporting multiple DES formalisms (Event Graph, Activity Cycle Diagram, DEVS)
-- Verifying behavioral equivalence between models via stutter equivalence
+- Verifying behavioral equivalence between models via macro-step refinement equivalence
 - Running experiments with statistics collection and automatic plotting
 
 ## Overview
@@ -20,8 +20,8 @@ allowing rigorous verification of behavioral equivalence across formalisms.
 - **Event Graph (EG)**: Event-based formalism using next-event time-advance algorithm
 - **Activity Cycle Diagram (ACD)**: Activity-based formalism using three-phase scanning
 - **DEVS**: Discrete Event System Specification formalism using abstract simulator algorithm
-- **Stutter Equivalence**: Two models are equivalent if they produce the same
-  sequence of observable state changes, regardless of internal steps
+- **Macro-Step Refinement Equivalence (MSRE)**: Two models are equivalent if they
+  produce the same observable labels at every tick boundary, regardless of internal steps
 - **Complexity Analysis:** Semantic Model Complexity (SMC) metric computed statically
 
 ## Installation
@@ -79,7 +79,7 @@ The **JSON files** define the Event Graph structure (vertices, edges, delays, co
 and are the primary input for simulation and SMC computation. The **.simasm files** in
 `models_simasm/` are ASM translations of the same models, used to compute lines-of-code
 (LOC) and Kolmogorov complexity (KC). The **input/models/** directory contains separate
-hand-written models for the Quick Start tutorials and stutter equivalence verification.
+hand-written models for the Quick Start tutorials and equivalence verification.
 
 ### Benchmark Model Naming Convention
 
@@ -299,7 +299,7 @@ simasm-library/
 │   ├── parser/              # SimASM parser
 │   ├── runtime/             # ASM execution engine
 │   ├── simulation/          # Experiment runner & statistics
-│   ├── verification/        # Stutter equivalence verification
+│   ├── verification/        # Equivalence verification (stutter + MSRE)
 │   ├── input/
 │   │   ├── models/          # Hand-crafted .simasm models (M/M/5, warehouse)
 │   │   └── experiments/     # Experiment & verification specs
@@ -319,7 +319,7 @@ simasm-library/
 | `acd_littles_law.ipynb`                   | ACD + Little's Law verification                | Section 3.1 (ACD formalism)       | 2     |
 | `eg_to_asm_translation.ipynb`             | Formal EG→ASM translation algorithm           | Section 3.2, Appendix A           | 3     |
 | `acd_to_asm_translation.ipynb`            | Formal ACD→ASM translation algorithm          | Section 3.2                       | 3     |
-| `mm5_verification.ipynb`                  | Stutter equivalence verification (M/M/5)       | Section 3.2 (stutter equivalence) | 4     |
+| `mm5_verification.ipynb`                  | Equivalence verification (M/M/5)                | Section 3.2 (equivalence)         | 4     |
 | `warehouse_verification.ipynb`            | Complex 6-station warehouse verification       | Section 8 (case study model)      | 5     |
 | `warehouse_verification_w_analysis.ipynb` | Extended statistical analysis                  | Section 8                         | 5     |
 
@@ -342,7 +342,7 @@ simasm-library/
 | ------------------------------------------ | -------------------------------------------- |
 | `littles_law_eg.simasm`                  | Little's Law verification (L = λW) for EG |
 | `littles_law_acd.simasm`                 | Little's Law verification for ACD          |
-| `mm5_verification.simasm`                | Stutter equivalence: EG vs ACD             |
+| `mm5_verification.simasm`                | Equivalence verification: EG vs ACD        |
 | `warehouse_w_stutter_equivalence.simasm` | Warehouse model verification               |
 
 ## Output Files
@@ -397,7 +397,7 @@ simasm/output/
 - Uses three-phase scanning algorithm (scan → time → execute)
 - Activities consume and produce tokens from queues
 
-## Stutter Equivalence Verification
+## Equivalence Verification
 
 SimASM can verify that two models (e.g., EG and ACD of the same system)
 produce identical observable behavior:
@@ -411,7 +411,7 @@ verification EG_ACD_Equivalence:
     labels:
         label busy_eq_0 for EG: "service_count(server) == 0"
         label busy_eq_0 for ACD: "servers_busy() == 0"
-    check: type=stutter_equivalence, run_length=100.0
+    check: type=macro_step_refinement, run_length=100.0
 endverification
 ```
 
@@ -425,7 +425,7 @@ Gurevich [1, 2]. Several ASM implementations and tools have been developed:
 - **CoreASM** [5]: Extensible ASM execution engine with microkernel architecture
 
 SimASM adapts from these earlier ASM implementations and applies ASM to discrete-event simulation, following Wagner's foundational work on ASM-based DES semantics [6].
-The stutter equivalence verification is based on techniques from model checking [7].
+The equivalence verification is based on techniques from model checking [7].
 
 ### References
 
