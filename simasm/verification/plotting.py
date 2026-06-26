@@ -113,8 +113,8 @@ def generate_verification_plots(
     Generate all plots for a verification result.
 
     Creates PNG files:
-    - trace_comparison.png: Grouped bar chart of raw vs no-stutter trace lengths
-    - ns_convergence.png: Line plot showing no-stutter trace lengths across seeds
+    - trace_comparison.png: Grouped bar chart of raw vs macro vs internal steps
+    - ns_convergence.png: Line plot showing macro step counts across seeds
     - stutter_distribution.png: Box plot of stutter ratio distribution
 
     Args:
@@ -231,7 +231,7 @@ def plot_trace_comparison(
     """
     Create grouped bar chart comparing trace lengths between models.
 
-    Shows raw trace length, no-stutter trace length, and stutter steps for each model.
+    Shows raw steps, macro steps, and internal steps for each model.
 
     Args:
         result: Verification result
@@ -252,24 +252,24 @@ def plot_trace_comparison(
     width = 0.25
 
     # Extract statistics
-    raw_lengths = []
-    ns_lengths = []
-    stutter_steps = []
+    raw_steps_vals = []
+    macro_steps_vals = []
+    internal_steps_vals = []
 
     for name in model_names:
         stats = result.model_stats[name]
-        raw = stats.get('avg_raw_length', stats.get('raw_length', 0))
-        ns = stats.get('avg_ns_length', stats.get('ns_length', 0))
-        raw_lengths.append(raw)
-        ns_lengths.append(ns)
-        stutter_steps.append(raw - ns)
+        raw = stats.get('avg_raw_steps', stats.get('raw_steps', 0))
+        macro = stats.get('avg_macro_steps', stats.get('macro_steps', 0))
+        raw_steps_vals.append(raw)
+        macro_steps_vals.append(macro)
+        internal_steps_vals.append(raw - macro)
 
     # Plot bars
-    bars1 = ax.bar(x - width, raw_lengths, width, label='Raw Trace',
+    bars1 = ax.bar(x - width, raw_steps_vals, width, label='Raw Steps',
                    color=config.color_raw, alpha=config.alpha_bar)
-    bars2 = ax.bar(x, ns_lengths, width, label='No-Stutter Trace',
+    bars2 = ax.bar(x, macro_steps_vals, width, label='Macro Steps',
                    color=config.color_ns, alpha=config.alpha_bar)
-    bars3 = ax.bar(x + width, stutter_steps, width, label='Stutter Steps',
+    bars3 = ax.bar(x + width, internal_steps_vals, width, label='Internal Steps',
                    color=config.color_stutter, alpha=config.alpha_bar)
 
     # Add value labels on bars
@@ -288,7 +288,7 @@ def plot_trace_comparison(
 
     ax.set_xlabel('Model')
     ax.set_ylabel('Trace Length')
-    ax.set_title('Trace Length Comparison\n(Raw vs No-Stutter vs Stutter Steps)',
+    ax.set_title('Trace Length Comparison\n(Raw vs Macro vs Internal Steps)',
                  fontsize=12, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels(model_names)
@@ -304,9 +304,9 @@ def plot_ns_convergence(
     config: VerificationPlotConfig
 ) -> plt.Figure:
     """
-    Create line plot showing no-stutter trace lengths across seeds.
+    Create line plot showing macro step counts across seeds.
 
-    Both models should have identical no-stutter lengths for each seed.
+    Both models should have identical macro step counts for each seed.
     This provides visual confirmation that equivalence holds.
 
     Args:
@@ -333,7 +333,7 @@ def plot_ns_convergence(
         ns_lengths = []
         for seed_stats in result.per_seed_stats:
             stats = seed_stats.model_stats.get(model_name, {})
-            ns_lengths.append(stats.get('ns_length', 0))
+            ns_lengths.append(stats.get('macro_steps', 0))
 
         ax.plot(seeds, ns_lengths,
                 marker=markers[i % len(markers)],
@@ -344,8 +344,8 @@ def plot_ns_convergence(
                 alpha=config.alpha_line)
 
     ax.set_xlabel('Seed')
-    ax.set_ylabel('No-Stutter Trace Length')
-    ax.set_title('No-Stutter Trace Length Across Seeds\n(Lines should overlap if equivalent)',
+    ax.set_ylabel('Macro Steps')
+    ax.set_title('Macro Steps Across Seeds\n(Lines should overlap if equivalent)',
                  fontsize=12, fontweight='bold')
     ax.legend(loc='best')
     ax.grid(config.show_grid, alpha=0.3)
@@ -366,9 +366,9 @@ def plot_stutter_distribution(
     config: VerificationPlotConfig
 ) -> plt.Figure:
     """
-    Create box plot showing stutter ratio distribution for each model.
+    Create box plot showing internal step ratio distribution for each model.
 
-    Stutter ratio = stutter_steps / raw_trace_length
+    Internal ratio = internal_steps / raw_steps
 
     Args:
         result: Verification result with per_seed_stats
@@ -387,18 +387,18 @@ def plot_stutter_distribution(
     model_names = list(result.per_seed_stats[0].model_stats.keys())
     colors = [config.color_eg, config.color_acd]
 
-    stutter_ratios = {name: [] for name in model_names}
+    internal_ratios = {name: [] for name in model_names}
 
     for seed_stats in result.per_seed_stats:
         for name in model_names:
             stats = seed_stats.model_stats.get(name, {})
-            raw = stats.get('raw_length', 1)
-            stutter = stats.get('stutter_steps', 0)
-            ratio = stutter / raw if raw > 0 else 0
-            stutter_ratios[name].append(ratio)
+            raw = stats.get('raw_steps', 1)
+            internal = stats.get('internal_steps', 0)
+            ratio = internal / raw if raw > 0 else 0
+            internal_ratios[name].append(ratio)
 
     # Create box plot
-    data = [stutter_ratios[name] for name in model_names]
+    data = [internal_ratios[name] for name in model_names]
     bp = ax.boxplot(data, labels=model_names, patch_artist=True)
 
     # Style boxes
@@ -406,14 +406,14 @@ def plot_stutter_distribution(
         patch.set_facecolor(color)
         patch.set_alpha(0.6)
 
-    ax.set_ylabel('Stutter Ratio (stutter_steps / raw_trace)')
-    ax.set_title('Stutter Ratio Distribution\n(Internal bookkeeping fraction)',
+    ax.set_ylabel('Internal Ratio (internal_steps / raw_steps)')
+    ax.set_title('Internal Step Ratio Distribution\n(Internal bookkeeping fraction)',
                  fontsize=12, fontweight='bold')
     ax.grid(config.show_grid, axis='y', alpha=0.3)
 
     # Add mean annotations
     for i, name in enumerate(model_names):
-        mean_ratio = np.mean(stutter_ratios[name])
+        mean_ratio = np.mean(internal_ratios[name])
         ax.annotate(f'Mean: {mean_ratio:.1%}',
                     xy=(i + 1, mean_ratio),
                     xytext=(10, 0),
@@ -442,20 +442,20 @@ def generate_summary_table(
         Markdown formatted table string
     """
     lines = []
-    lines.append("| Model | Raw Trace (mean) | NS Trace (mean) | Stutter Ratio | Status |")
-    lines.append("|-------|------------------|-----------------|---------------|--------|")
+    lines.append("| Model | Raw Steps (mean) | Macro Steps (mean) | Internal Ratio | Status |")
+    lines.append("|-------|------------------|---------------------|----------------|--------|")
 
     model_names = list(result.model_stats.keys())
 
     for name in model_names:
         stats = result.model_stats[name]
-        raw = stats.get('avg_raw_length', stats.get('raw_length', 0))
-        ns = stats.get('avg_ns_length', stats.get('ns_length', 0))
-        stutter_ratio = (raw - ns) / raw if raw > 0 else 0
+        raw = stats.get('avg_raw_steps', stats.get('raw_steps', 0))
+        macro = stats.get('avg_macro_steps', stats.get('macro_steps', 0))
+        internal_ratio = (raw - macro) / raw if raw > 0 else 0
 
         status = "Equivalent" if result.is_equivalent else "Not Equivalent"
 
-        lines.append(f"| {name} | {raw:.1f} | {ns:.1f} | {stutter_ratio:.1%} | {status} |")
+        lines.append(f"| {name} | {raw:.1f} | {macro:.1f} | {internal_ratio:.1%} | {status} |")
 
     return "\n".join(lines)
 
@@ -483,13 +483,13 @@ def print_verification_summary(result: "TraceVerificationResult") -> None:
     model_names = list(result.model_stats.keys())
     for name in model_names:
         stats = result.model_stats[name]
-        raw = stats.get('avg_raw_length', stats.get('raw_length', 0))
-        ns = stats.get('avg_ns_length', stats.get('ns_length', 0))
-        stutter_ratio = (raw - ns) / raw if raw > 0 else 0
+        raw = stats.get('avg_raw_steps', stats.get('raw_steps', 0))
+        macro = stats.get('avg_macro_steps', stats.get('macro_steps', 0))
+        internal_ratio = (raw - macro) / raw if raw > 0 else 0
 
         print(f"  {name}:")
-        print(f"    Raw trace length:       {raw:.1f}")
-        print(f"    No-stutter length:      {ns:.1f}")
-        print(f"    Stutter ratio:          {stutter_ratio:.1%}")
+        print(f"    Raw steps:              {raw:.1f}")
+        print(f"    Macro steps:            {macro:.1f}")
+        print(f"    Internal ratio:         {internal_ratio:.1%}")
 
     print("\n" + "=" * 70)

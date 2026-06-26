@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simasm"
-version = "0.8.0"
+version = "0.8.1"
 description = "Abstract State Machine Framework for Discrete Event Simulation"
 readme = "README.md"
 license = {text = "MIT"}

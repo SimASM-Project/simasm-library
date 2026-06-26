@@ -897,7 +897,7 @@ class VerificationEngine:
             # Assumption 1 violation: initial labels differ
             elapsed = time_module.time() - start_time
             for name in [name_a, name_b]:
-                model_stats[name] = {"raw_length": 1, "ns_length": 1, "stutter_steps": 0, "steps": 0}
+                model_stats[name] = {"raw_steps": 1, "macro_steps": 1, "internal_steps": 0, "steps": 0}
                 model_timing[name]["exec_time_sec"] = 0.0
                 model_timing[name]["total_time_sec"] = model_timing[name]["load_time_sec"]
             self._result = TraceVerificationResult(
@@ -929,16 +929,16 @@ class VerificationEngine:
 
         for name, trace, ns in [(name_a, trace_a, ns_a), (name_b, trace_b, ns_b)]:
             model_stats[name] = {
-                "raw_length": len(trace),
-                "ns_length": len(ns),
-                "stutter_steps": count_stutter_steps(trace),
+                "raw_steps": len(trace),
+                "macro_steps": len(ns),
+                "internal_steps": count_stutter_steps(trace),
                 "steps": len(trace) - 1,
             }
             model_timing[name]["exec_time_sec"] = exec_time
             model_timing[name]["total_time_sec"] = model_timing[name]["load_time_sec"] + exec_time
             logger.info(
-                f"  {name}: {len(trace)} raw -> {len(ns)} no-stutter "
-                f"({model_stats[name]['stutter_steps']} stutter steps)"
+                f"  {name}: {len(trace)} raw -> {len(ns)} macro "
+                f"({model_stats[name]['internal_steps']} internal steps)"
             )
 
         if progress_callback:
@@ -1049,9 +1049,9 @@ class VerificationEngine:
 
                 for name, trace, ns in [(name_a, trace_a, ns_a), (name_b, trace_b, ns_b)]:
                     model_stats[name] = {
-                        "raw_length": len(trace),
-                        "ns_length": len(ns),
-                        "stutter_steps": count_stutter_steps(trace),
+                        "raw_steps": len(trace),
+                        "macro_steps": len(ns),
+                        "internal_steps": count_stutter_steps(trace),
                         "steps": len(trace) - 1,
                         "product_steps": product_steps,
                     }
@@ -1060,7 +1060,7 @@ class VerificationEngine:
             else:
                 for name in [name_a, name_b]:
                     model_stats[name] = {
-                        "raw_length": 1, "ns_length": 1, "stutter_steps": 0,
+                        "raw_steps": 1, "macro_steps": 1, "internal_steps": 0,
                         "steps": 0, "product_steps": 0,
                     }
                     seed_timing[name]["exec_time_sec"] = exec_time
@@ -1090,16 +1090,16 @@ class VerificationEngine:
         avg_stats = {}
         avg_timing = {}
         for name in [name_a, name_b]:
-            raw_lengths = [s.model_stats[name]["raw_length"] for s in per_seed_stats]
-            ns_lengths = [s.model_stats[name]["ns_length"] for s in per_seed_stats]
-            stutter_steps = [s.model_stats[name]["stutter_steps"] for s in per_seed_stats]
+            raw_steps_list = [s.model_stats[name]["raw_steps"] for s in per_seed_stats]
+            macro_steps_list = [s.model_stats[name]["macro_steps"] for s in per_seed_stats]
+            internal_steps_list = [s.model_stats[name]["internal_steps"] for s in per_seed_stats]
 
             avg_stats[name] = {
-                "avg_raw_length": sum(raw_lengths) / len(raw_lengths),
-                "avg_ns_length": sum(ns_lengths) / len(ns_lengths),
-                "avg_stutter_steps": sum(stutter_steps) / len(stutter_steps),
-                "raw_length": sum(raw_lengths) / len(raw_lengths),
-                "ns_length": sum(ns_lengths) / len(ns_lengths),
+                "avg_raw_steps": sum(raw_steps_list) / len(raw_steps_list),
+                "avg_macro_steps": sum(macro_steps_list) / len(macro_steps_list),
+                "avg_internal_steps": sum(internal_steps_list) / len(internal_steps_list),
+                "raw_steps": sum(raw_steps_list) / len(raw_steps_list),
+                "macro_steps": sum(macro_steps_list) / len(macro_steps_list),
             }
 
             load_times = [s.model_timing[name]["load_time_sec"] for s in per_seed_stats]
@@ -1688,7 +1688,7 @@ class VerificationEngine:
             writer.writerow([])
 
             # Model stats header
-            writer.writerow(["model", "path", "raw_length", "ns_length", "stutter_steps"])
+            writer.writerow(["model", "path", "raw_steps", "macro_steps", "internal_steps"])
 
             # Model stats rows
             for m in self._spec.models:
@@ -1696,9 +1696,9 @@ class VerificationEngine:
                 writer.writerow([
                     m.name,
                     m.path,
-                    stats.get("raw_length", ""),
-                    stats.get("ns_length", ""),
-                    stats.get("stutter_steps", ""),
+                    stats.get("raw_steps", ""),
+                    stats.get("macro_steps", ""),
+                    stats.get("internal_steps", ""),
                 ])
 
     def _write_text_output(self, path: Path) -> None:
@@ -1716,7 +1716,7 @@ class VerificationEngine:
         ]
 
         for name, stats in self._result.model_stats.items():
-            lines.append(f"  {name}: {stats['raw_length']} raw -> {stats['ns_length']} no-stutter")
+            lines.append(f"  {name}: {stats['raw_steps']} raw -> {stats['macro_steps']} macro")
 
         lines.extend([
             "",
@@ -1745,9 +1745,9 @@ class VerificationEngine:
         for m in self._spec.models:
             stats = self._result.model_stats.get(m.name, {})
             lines.append(f"- **{m.name}:** `{m.path}`")
-            lines.append(f"  - Raw trace: {stats.get('raw_length', '?')} positions")
-            lines.append(f"  - No-stutter: {stats.get('ns_length', '?')} positions")
-            lines.append(f"  - Stutter steps: {stats.get('stutter_steps', '?')}")
+            lines.append(f"  - Raw steps: {stats.get('raw_steps', '?')}")
+            lines.append(f"  - Macro steps: {stats.get('macro_steps', '?')}")
+            lines.append(f"  - Internal steps: {stats.get('internal_steps', '?')}")
 
         lines.extend(["", "## Result", ""])
 

@@ -369,14 +369,14 @@ class SimASMMagics(Magics):
 
         model_stats = {
             model_a.name: {
-                "raw_length": int(sum(all_steps_a) / n) if n else 0,
-                "ns_length": int(sum(all_boundaries) / n) if n else 0,
-                "stutter_steps": int((sum(all_steps_a) - sum(all_boundaries)) / n) if n else 0,
+                "raw_steps": int(sum(all_steps_a) / n) if n else 0,
+                "macro_steps": int(sum(all_boundaries) / n) if n else 0,
+                "internal_steps": int((sum(all_steps_a) - sum(all_boundaries)) / n) if n else 0,
             },
             model_b.name: {
-                "raw_length": int(sum(all_steps_b) / n) if n else 0,
-                "ns_length": int(sum(all_boundaries) / n) if n else 0,
-                "stutter_steps": int((sum(all_steps_b) - sum(all_boundaries)) / n) if n else 0,
+                "raw_steps": int(sum(all_steps_b) / n) if n else 0,
+                "macro_steps": int(sum(all_boundaries) / n) if n else 0,
+                "internal_steps": int((sum(all_steps_b) - sum(all_boundaries)) / n) if n else 0,
             },
         }
 
@@ -888,20 +888,20 @@ class SimASMMagics(Magics):
             html.append('<tr style="background: #f0f0f0;">')
             html.append('<th style="border: 1px solid #ddd; padding: 8px;">Model</th>')
             if is_multi_seed:
-                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Avg Raw Trace</th>')
-                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Avg No-Stutter</th>')
+                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Avg Raw Steps</th>')
+                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Avg Macro Steps</th>')
             else:
-                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Raw Trace</th>')
-                html.append('<th style="border: 1px solid #ddd; padding: 8px;">No-Stutter</th>')
-                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Stutter Steps</th>')
+                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Raw Steps</th>')
+                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Macro Steps</th>')
+                html.append('<th style="border: 1px solid #ddd; padding: 8px;">Internal Steps</th>')
             html.append('<th style="border: 1px solid #ddd; padding: 8px;">Runtime (s)</th>')
             html.append('</tr>')
 
             for name, stats in result.model_stats.items():
                 html.append('<tr>')
                 html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{name}</td>')
-                raw_len = stats.get("raw_length", stats.get("avg_raw_length", "?"))
-                ns_len = stats.get("ns_length", stats.get("avg_ns_length", "?"))
+                raw_len = stats.get("raw_steps", stats.get("avg_raw_steps", "?"))
+                ns_len = stats.get("macro_steps", stats.get("avg_macro_steps", "?"))
                 if isinstance(raw_len, float):
                     html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{raw_len:.1f}</td>')
                 else:
@@ -911,7 +911,7 @@ class SimASMMagics(Magics):
                 else:
                     html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{ns_len}</td>')
                 if not is_multi_seed:
-                    html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("stutter_steps", "?")}</td>')
+                    html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("internal_steps", "?")}</td>')
                 # Add runtime column
                 timing = result.model_timing.get(name, {}) if hasattr(result, 'model_timing') else {}
                 if is_multi_seed:
@@ -944,7 +944,7 @@ class SimASMMagics(Magics):
         print()
 
         if result.model_stats:
-            print(f"{'Model':<20} {'Raw':>10} {'No-Stutter':>12} {'Stutter':>10} {'Runtime':>10}")
+            print(f"{'Model':<20} {'Raw Steps':>10} {'Macro':>12} {'Internal':>10} {'Runtime':>10}")
             print("-" * 70)
             for name, stats in result.model_stats.items():
                 timing = result.model_timing.get(name, {}) if hasattr(result, 'model_timing') else {}
@@ -953,7 +953,7 @@ class SimASMMagics(Magics):
                     time_val = timing.get("avg_total_time_sec", 0.0)
                 else:
                     time_val = timing.get("total_time_sec", 0.0)
-                print(f"{name:<20} {stats.get('raw_length', '?'):>10} {stats.get('ns_length', '?'):>12} {stats.get('stutter_steps', '?'):>10} {time_val:>10.3f}")
+                print(f"{name:<20} {stats.get('raw_steps', '?'):>10} {stats.get('macro_steps', '?'):>12} {stats.get('internal_steps', '?'):>10} {time_val:>10.3f}")
 
         return result
 

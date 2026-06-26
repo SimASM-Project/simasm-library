@@ -638,7 +638,7 @@ def run_trace_comparison_verification(
         print(f"  Time elapsed: {result.time_elapsed:.3f}s")
 
         for name, stats in result.model_stats.items():
-            print(f"  {name}: {stats['raw_length']} raw -> {stats['ns_length']} no-stutter")
+            print(f"  {name}: {stats['raw_steps']} raw -> {stats['macro_steps']} macro")
 
         print(f"  {'-'*56}")
 

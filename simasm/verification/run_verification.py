@@ -196,12 +196,12 @@ def run_single_seed_verification(
                 name_a: {
                     "raw_trace_length": 1,
                     "no_stutter_length": 1,
-                    "stutter_steps": 0
+                    "internal_steps": 0
                 },
                 name_b: {
                     "raw_trace_length": 1,
                     "no_stutter_length": 1,
-                    "stutter_steps": 0
+                    "internal_steps": 0
                 }
             },
             "product_steps": 0,
@@ -223,12 +223,12 @@ def run_single_seed_verification(
             name_a: {
                 "raw_trace_length": len(trace_a),
                 "no_stutter_length": len(ns_a),
-                "stutter_steps": count_stutter_steps(trace_a)
+                "internal_steps": count_stutter_steps(trace_a)
             },
             name_b: {
                 "raw_trace_length": len(trace_b),
                 "no_stutter_length": len(ns_b),
-                "stutter_steps": count_stutter_steps(trace_b)
+                "internal_steps": count_stutter_steps(trace_b)
             }
         },
         "product_steps": steps,
@@ -300,12 +300,12 @@ def run_verification(spec_path: str, end_time: float = 10.0, verbose: bool = Tru
         name_a: {
             "avg_raw_trace_length": sum(r["models"][name_a]["raw_trace_length"] for r in seed_results) / len(seed_results),
             "avg_no_stutter_length": sum(r["models"][name_a]["no_stutter_length"] for r in seed_results) / len(seed_results),
-            "avg_stutter_steps": sum(r["models"][name_a]["stutter_steps"] for r in seed_results) / len(seed_results),
+            "avg_internal_steps": sum(r["models"][name_a]["internal_steps"] for r in seed_results) / len(seed_results),
         },
         name_b: {
             "avg_raw_trace_length": sum(r["models"][name_b]["raw_trace_length"] for r in seed_results) / len(seed_results),
             "avg_no_stutter_length": sum(r["models"][name_b]["no_stutter_length"] for r in seed_results) / len(seed_results),
-            "avg_stutter_steps": sum(r["models"][name_b]["stutter_steps"] for r in seed_results) / len(seed_results),
+            "avg_internal_steps": sum(r["models"][name_b]["internal_steps"] for r in seed_results) / len(seed_results),
         }
     }
 
@@ -318,8 +318,8 @@ def run_verification(spec_path: str, end_time: float = 10.0, verbose: bool = Tru
         for mn in [name_a, name_b]:
             stats = first_result["models"][mn]
             print(f"  {mn}: {stats['raw_trace_length']} raw steps, "
-                  f"{stats['no_stutter_length']} ns-labels, "
-                  f"{stats['stutter_steps']} stutter steps")
+                  f"{stats['no_stutter_length']} macro steps, "
+                  f"{stats['internal_steps']} internal steps")
 
     # Final result
     print("\n" + "=" * 70)

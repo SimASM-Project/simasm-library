@@ -142,7 +142,7 @@ def plot_trace_comparison_grid(
     if show_raw:
         col_titles.append("Raw Traces")
     if show_no_stutter:
-        col_titles.append("No-Stutter Traces")
+        col_titles.append("Macro Step Traces")
 
     for col_idx, col_title in enumerate(col_titles):
         axes[0, col_idx].set_title(col_title, fontsize=config.title_fontsize + 2, pad=10)

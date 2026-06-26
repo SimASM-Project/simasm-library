@@ -409,14 +409,14 @@ def _run_msre_verification(parsed, base_path: Path, progress: bool) -> Any:
 
     model_stats = {
         model_a.name: {
-            "raw_length": int(sum(all_steps_a) / n) if n else 0,
-            "ns_length": int(sum(all_boundaries) / n) if n else 0,
-            "stutter_steps": int((sum(all_steps_a) - sum(all_boundaries)) / n) if n else 0,
+            "raw_steps": int(sum(all_steps_a) / n) if n else 0,
+            "macro_steps": int(sum(all_boundaries) / n) if n else 0,
+            "internal_steps": int((sum(all_steps_a) - sum(all_boundaries)) / n) if n else 0,
         },
         model_b.name: {
-            "raw_length": int(sum(all_steps_b) / n) if n else 0,
-            "ns_length": int(sum(all_boundaries) / n) if n else 0,
-            "stutter_steps": int((sum(all_steps_b) - sum(all_boundaries)) / n) if n else 0,
+            "raw_steps": int(sum(all_steps_b) / n) if n else 0,
+            "macro_steps": int(sum(all_boundaries) / n) if n else 0,
+            "internal_steps": int((sum(all_steps_b) - sum(all_boundaries)) / n) if n else 0,
         },
     }
 
@@ -797,17 +797,17 @@ def display_verification_result(result: Any) -> None:
             html.append('<table style="border-collapse: collapse; margin: 10px 0;">')
             html.append('<tr style="background: #f0f0f0;">')
             html.append('<th style="border: 1px solid #ddd; padding: 8px;">Model</th>')
-            html.append('<th style="border: 1px solid #ddd; padding: 8px;">Raw Trace</th>')
-            html.append('<th style="border: 1px solid #ddd; padding: 8px;">No-Stutter</th>')
-            html.append('<th style="border: 1px solid #ddd; padding: 8px;">Stutter Steps</th>')
+            html.append('<th style="border: 1px solid #ddd; padding: 8px;">Raw Steps</th>')
+            html.append('<th style="border: 1px solid #ddd; padding: 8px;">Macro Steps</th>')
+            html.append('<th style="border: 1px solid #ddd; padding: 8px;">Internal Steps</th>')
             html.append('</tr>')
 
             for name, stats in result.model_stats.items():
                 html.append('<tr>')
                 html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{name}</td>')
-                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("raw_length", "?")}</td>')
-                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("ns_length", "?")}</td>')
-                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("stutter_steps", "?")}</td>')
+                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("raw_steps", "?")}</td>')
+                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("macro_steps", "?")}</td>')
+                html.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{stats.get("internal_steps", "?")}</td>')
                 html.append('</tr>')
 
             html.append('</table>')
@@ -831,7 +831,7 @@ def display_verification_result(result: Any) -> None:
         print()
 
         if result.model_stats:
-            print(f"{'Model':<20} {'Raw':>10} {'No-Stutter':>12} {'Stutter':>10}")
+            print(f"{'Model':<20} {'Raw Steps':>10} {'Macro':>12} {'Internal':>10}")
             print("-" * 60)
             for name, stats in result.model_stats.items():
-                print(f"{name:<20} {stats.get('raw_length', '?'):>10} {stats.get('ns_length', '?'):>12} {stats.get('stutter_steps', '?'):>10}")
+                print(f"{name:<20} {stats.get('raw_steps', '?'):>10} {stats.get('macro_steps', '?'):>12} {stats.get('internal_steps', '?'):>10}")
